@@ -215,8 +215,9 @@ fetch("https://script.google.com/macros/s/AKfycbxItUDgTduLsyET_QStL548UdlGD0-FZg
   body: params
 })
 .then(res => res.text())
-.then(text => console.log("✅ Enviado a Sheets:", text))
+.then(text => console.log("✅ Datos enviados a Sheets:", text))
 .catch(err => console.error("❌ Error al enviar:", err));
+
 
 
 
