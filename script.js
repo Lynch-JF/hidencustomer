@@ -198,19 +198,26 @@ function finalizar(index) {
   data.tiempoPorProducto = promedioMinPorProducto;
   guardarPedidos();
 
-fetch("https://script.google.com/macros/s/AKfycTU_URL_NUEVA/exec", {
+const params = new URLSearchParams();
+params.append("codigo", data.codigo);
+params.append("sacador", data.sacador);
+params.append("cantidad", data.cantidad);
+params.append("horaInicio", new Date(data.startTimestamp).toISOString());
+params.append("horaFin", new Date(data.endTimestamp).toISOString());
+params.append("tiempoTotal", formatTime(Math.floor(duracionMs / 1000)));
+params.append("tiempoPorProducto", promedioMinPorProducto);
+
+fetch("https://script.google.com/macros/s/AKfycbxItUDgTduLsyET_QStL548UdlGD0-FZg_7hicSENgUr7L2hrR9P-uTMM65JAZQSYaWag/exec", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    codigo: data.codigo,
-    sacador: data.sacador,
-    cantidad: data.cantidad,
-    horaInicio: new Date(data.startTimestamp).toISOString(),
-    horaFin: new Date(data.endTimestamp).toISOString(),
-    tiempoTotal: formatTime(Math.floor(duracionMs / 1000)),
-    tiempoPorProducto: promedioMinPorProducto
-  })
-});
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded"
+  },
+  body: params
+})
+.then(res => res.text())
+.then(text => console.log("✅ Enviado a Sheets:", text))
+.catch(err => console.error("❌ Error al enviar:", err));
+
 
 
 
