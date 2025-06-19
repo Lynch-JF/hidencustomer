@@ -58,7 +58,10 @@ function agregarPedido() {
   const task = document.createElement("div");
   task.className = "task";
   task.innerHTML = `
-    <h3 id="codigo-${index}">${codigo}</h3>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 id="codigo-${index}">${codigo}</h3>
+      <button onclick="eliminar(${index})" style="background:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;">X</button>
+    </div>
     <p id="sacador-${index}">${sacador}</p>
     <p>Cantidad de productos: <span>${cantidad}</span></p>
     <p>Inicio: <span id="start-${index}">${now.toLocaleString()}</span></p>
@@ -195,6 +198,22 @@ function finalizar(index) {
   data.tiempoPorProducto = promedioMinPorProducto;
   guardarPedidos();
 
+fetch("https://script.google.com/macros/s/AKfycTU_URL_NUEVA/exec", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    codigo: data.codigo,
+    sacador: data.sacador,
+    cantidad: data.cantidad,
+    horaInicio: new Date(data.startTimestamp).toISOString(),
+    horaFin: new Date(data.endTimestamp).toISOString(),
+    tiempoTotal: formatTime(Math.floor(duracionMs / 1000)),
+    tiempoPorProducto: promedioMinPorProducto
+  })
+});
+
+
+
   delete timers[index];
 }
 
@@ -238,7 +257,10 @@ function reconstruirPedido(pedido) {
   const task = document.createElement("div");
   task.className = "task";
   task.innerHTML = `
-    <h3 id="codigo-${index}">${pedido.codigo}</h3>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 id="codigo-${index}">${pedido.codigo}</h3>
+      <button onclick="eliminar(${index})" style="background:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;">X</button>
+    </div>
     <p id="sacador-${index}">${pedido.sacador}</p>
     <p>Cantidad de productos: <span>${pedido.cantidad}</span></p>
     <p>Inicio: <span id="start-${index}">${pedido.startTimeStr || new Date(pedido.startTimestamp).toLocaleString()}</span></p>
@@ -252,13 +274,6 @@ function reconstruirPedido(pedido) {
   if (pedido.finalizado) {
     task.style.backgroundColor = "#d4edda";
     task.style.borderColor = "#28a745";
-    const eliminarBtn = document.createElement("button");
-    eliminarBtn.id = `eliminar-${index}`;
-    eliminarBtn.textContent = "Eliminar";
-    eliminarBtn.style.backgroundColor = "#dc3545";
-    eliminarBtn.style.marginLeft = "10px";
-    eliminarBtn.onclick = () => eliminar(index);
-    task.appendChild(eliminarBtn);
   }
   taskList.appendChild(task);
   pausedTimers[index] = pedido;
