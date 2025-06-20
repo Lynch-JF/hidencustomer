@@ -198,26 +198,34 @@ function finalizar(index) {
   data.tiempoPorProducto = promedioMinPorProducto;
   guardarPedidos();
 
-const params = new URLSearchParams();
+/*const params = new URLSearchParams();
 params.append("codigo", data.codigo);
 params.append("sacador", data.sacador);
 params.append("cantidad", data.cantidad);
 params.append("horaInicio", new Date(data.startTimestamp).toISOString());
 params.append("horaFin", new Date(data.endTimestamp).toISOString());
 params.append("tiempoTotal", formatTime(Math.floor(duracionMs / 1000)));
-params.append("tiempoPorProducto", promedioMinPorProducto);
+params.append("tiempoPorProducto", promedioMinPorProducto);*/
 
-fetch("https://script.google.com/macros/s/AKfycbxItUDgTduLsyET_QStL548UdlGD0-FZg_7hicSENgUr7L2hrR9P-uTMM65JAZQSYaWag/exec", {
+fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17", {
   method: "POST",
+  mode: "cors",
   headers: {
-    "Content-Type": "application/x-www-form-urlencoded"
+    "Content-Type": "application/json"
   },
-  body: params
+  body: JSON.stringify({
+    "Codigo P": data.codigo,
+    "Sacador ": data.sacador,
+    "CantidadProductos ": data.cantidad,
+    "HoraInicio ": new Date(data.startTimestamp).toISOString(),
+    "HoraFin ": new Date(data.endTimestamp).toISOString(),
+    "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
+    "Tiempoitms": promedioMinPorProducto
+  })
 })
 .then(res => res.text())
-.then(text => console.log("✅ Datos enviados a Sheets:", text))
-.catch(err => console.error("❌ Error al enviar:", err));
-
+.then(text => console.log("✅ Datos enviados a Sheets vía Sheet.best:", text))
+.catch(err => console.error("❌ Error al enviar a Sheet.best:", err));
 
 
 
