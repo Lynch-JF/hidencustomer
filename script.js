@@ -123,8 +123,16 @@ function programarPausas(index, sacador, now) {
 
   if (dayPausas[dia]) {
     const pausaGeneral = getFutureTime(now, dayPausas[dia]);
-    const reanuda = getFutureTime(addDays(now, 1), "08:00:00");
     setTimeout(() => autoPause(index, "general"), pausaGeneral - now);
+
+    let reanuda;
+    if (dia === 6) {
+      // Sábado: reanudar el lunes a las 08:00 AM
+      reanuda = getFutureTime(addDays(now, 2), "08:00:00");
+    } else {
+      // Otros días: reanudar al día siguiente
+      reanuda = getFutureTime(addDays(now, 1), "08:00:00");
+    }
     setTimeout(() => autoReanudar(index), reanuda - now);
   }
 
@@ -198,37 +206,25 @@ function finalizar(index) {
   data.tiempoPorProducto = promedioMinPorProducto;
   guardarPedidos();
 
-/*const params = new URLSearchParams();
-params.append("codigo", data.codigo);
-params.append("sacador", data.sacador);
-params.append("cantidad", data.cantidad);
-params.append("horaInicio", new Date(data.startTimestamp).toISOString());
-params.append("horaFin", new Date(data.endTimestamp).toISOString());
-params.append("tiempoTotal", formatTime(Math.floor(duracionMs / 1000)));
-params.append("tiempoPorProducto", promedioMinPorProducto);*/
-
-fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17", {
-  method: "POST",
-  mode: "cors",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    "Codigo P": data.codigo,
-    "Sacador ": data.sacador,
-    "CantidadProductos ": data.cantidad,
-    "HoraInicio ": new Date(data.startTimestamp).toISOString(),
-    "HoraFin ": new Date(data.endTimestamp).toISOString(),
-    "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
-    "Tiempoitms": promedioMinPorProducto
+  fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17", {
+    method: "POST",
+    mode: "cors",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "Codigo P": data.codigo,
+      "Sacador ": data.sacador,
+      "CantidadProductos ": data.cantidad,
+      "HoraInicio ": new Date(data.startTimestamp).toISOString(),
+      "HoraFin ": new Date(data.endTimestamp).toISOString(),
+      "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
+      "Tiempoitms": promedioMinPorProducto
+    })
   })
-})
-.then(res => res.text())
-.then(text => console.log("✅ Datos enviados a Sheets vía Sheet.best:", text))
-.catch(err => console.error("❌ Error al enviar a Sheet.best:", err));
-
-
-
+  .then(res => res.text())
+  .then(text => console.log("✅ Datos enviados a Sheets vía Sheet.best:", text))
+  .catch(err => console.error("❌ Error al enviar a Sheet.best:", err));
 
   delete timers[index];
 }
