@@ -176,12 +176,13 @@ function finalizar(index) {
     return;
   }
 
-  const porcentaje = Math.round((cantidadSacada / total) * 100);
-  const duracionMs = now.getTime() - data.startTimestamp - data.pausedDuration;
-  const minutosTotales = Math.floor(duracionMs / 60000);
-  const promedioMinPorProducto = (cantidadSacada > 0)
-    ? (minutosTotales / cantidadSacada).toFixed(2)
-    : "0.00";
+const porcentaje = Math.round((cantidadSacada / total) * 100);
+const duracionMs = now.getTime() - data.startTimestamp - data.pausedDuration;
+const minutosTotales = duracionMs / 60000; // ✅ Precisión decimal sin redondear hacia abajo
+const promedioMinPorProducto = (cantidadSacada > 0)
+  ? (minutosTotales / cantidadSacada).toFixed(2)
+  : "0.00";
+
 
   document.getElementById(`tpp-${index}`).textContent = `${promedioMinPorProducto} min`;
 
