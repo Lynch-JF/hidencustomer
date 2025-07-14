@@ -14,7 +14,7 @@
   <img src="LOGO-Photoroom.png">
   <h1>Lista de Pedidos</h1>
  <div>
-    <input type="text" id="codigo" placeholder="Código del pedido" />
+<input type="text" id="codigo" placeholder="Código del pedido" />
     <select class="select" id="sacador">
       <option value="">Selecciona el sacador</option>
       <option value="Omar">Omar</option>
@@ -28,15 +28,32 @@
       <option value="Luis Eduardo">Luis Eduardo</option>
       <option value="Luis Morel">Luis Morel</option>
       <option value="Brayan">Brayan</option>
-      <option value="Enrigue">Enrigue</option>
+      <option value="Enrigue">Enrique</option>
       <option value="Cirilo">Cirilo</option>
     </select>
-    <input type="number" id="cantidad" placeholder="Cantidad total de productos" />
-    <button class="add" onclick="agregarPedido()">Agregar Pedido</button>
+<input type="number" id="cantidad" placeholder="Cantidad total de productos" />
+    <button class="add" type="button" onclick="agregarPedido()">Agregar Pedido</button>
   </div>
   <button class="pause" onclick="pausarTodos()">Pausar Todos</button>
   <button class="star" onclick="reanudarTodos()">Reanudar Todos</button>
+  <button onclick="eliminarTodos()" style="background:#dc3545;color:white;padding:10px;border:none;border-radius:5px;margin-bottom:10px;">
+  Eliminar todos los pedidos
+</button>
   <div id="task-list"></div>
   <script src="script.js"></script>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const inputs = ["codigo", "sacador", "cantidad"];
+    inputs.forEach(id => {
+      document.getElementById(id).addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          agregarPedido();
+        }
+      });
+    });
+  });
+</script>
 </body>
 </html>

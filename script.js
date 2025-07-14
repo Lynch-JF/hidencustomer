@@ -37,6 +37,10 @@ window.onload = () => {
 };
 
 function agregarPedido() {
+  if (!confirm("¿Seguro que deseas agregar otro pedido?")) {
+    return;
+  }
+
   const codigo = document.getElementById("codigo").value.trim();
   const sacador = document.getElementById("sacador").value;
   const cantidad = parseInt(document.getElementById("cantidad").value.trim(), 10);
@@ -45,6 +49,7 @@ function agregarPedido() {
     alert("Completa todos los campos correctamente.");
     return;
   }
+
 
   const index = Date.now();
   const now = new Date();
@@ -92,6 +97,13 @@ function agregarPedido() {
   iniciarTimer(index);
   programarPausas(index, sacador, now);
   guardarPedidos();
+
+  document.getElementById("codigo").value = "";
+  document.getElementById("sacador").value = "";
+  document.getElementById("cantidad").value = "";
+
+  // ✅ Enfocar el primer campo
+  document.getElementById("codigo").focus();
 }
 
 function iniciarTimer(index) {
@@ -129,7 +141,7 @@ function programarPausas(index, sacador, now) {
     if (dia === 6) {
       // Sábado: reanudar el lunes a las 08:00 AM
       reanuda = getFutureTime(addDays(now, 2), "08:00:00");
-    } else {
+    } else { 
       // Otros días: reanudar al día siguiente
       reanuda = getFutureTime(addDays(now, 1), "08:00:00");
     }
@@ -296,3 +308,17 @@ function reconstruirPedido(pedido) {
     programarPausas(index, pedido.sacador, new Date());
   }
 }
+
+function eliminarTodos() {
+  if (confirm("¿Estás seguro de que deseas eliminar todos los pedidos? Esta acción no se puede deshacer.")) {
+    for (let index in pausedTimers) {
+      const task = document.getElementById(`codigo-${index}`)?.closest(".task");
+      if (task) task.remove();
+      clearInterval(timers[index]);
+    }
+    pausedTimers = {};
+    timers = {};
+    guardarPedidos();
+  }
+}
+
