@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lista de Tareas</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+
+<body>
+  <nav class="navbar">
+    <div class="navbar-logo">
+      <img src="LOGO-Photoroom.png" alt="Logo" />
+      <span>Gestión de Pedidos</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">📦 Pedidos</a></li>
+      <li><a href="#" id="btn-reportes">📊 Reporte</a></li>
+      <li><a href="#" id="btn-exportar">📑 Exportar a Excel</a></li>
+    </ul>
+  </nav>
+
+  <div class="card-ranking" id="card-ranking">
+    <h2>🏆 Top 3 Sacadores del Mes</h2>
+    <ul id="lista-top-sacadores">
+      <li>No hay datos aún.</li>
+    </ul>
+  </div>
+
+  <div class="card-historial" id="card-sacadores">
+    <button class="accordion-btn" onclick="toggleListaSacadores()">
+      📋 Sacadores del Mes (<span id="mes-actual"></span>) ⬇️
+    </button>
+    <div id="contenedor-sacadores" class="accordion-content">
+      <ul id="lista-sacadores" class="sacadores-lista"></ul>
+    </div>
+  </div>
+
+
+<div id="conteo-pedidos" style="margin: 15px 0; font-weight: bold; font-size: 18px;">
+  📦 Total de pedidos en este periodo: 0
+</div>
+
+  <label for="filtro-fecha">Filtrar por fecha: </label>
+<select id="filtro-fecha">
+  <option value="ningun">Ninguna opción</option>
+  <option value="hoy">Hoy</option>
+  <option value="ayer">Ayer</option>
+  <option value="semana">Esta semana</option>
+  <option value="mes">Este mes</option>
+  <option value="todos">Todos</option>
+</select>
+
+  <table border="1" id="tabla-pedidos-filtrados">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Sacador</th>
+        <th>Total Productos</th>
+        <th>Total Pedidos</th>
+        <th>Promedio Tiempo (min)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+<div class="mensaje" id="mensaje"></div>
+
+  <div id="task-list"></div>
+
+  <!-- Tu archivo JS -->
+  <script src="JS2.js"></script>
+
+  <!-- Script para exportar Excel -->
+  <script>
+    document.getElementById("btn-exportar").addEventListener("click", exportarSacadoresAExcel);
+
+    function exportarSacadoresAExcel() {
+      if (sacadoresArrayGlobal.length === 0) {
+        alert("No hay datos para exportar.");
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(sacadoresArrayGlobal);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Sacadores del Mes");
+
+      const fecha = new Date();
+      const nombreArchivo = `Sacadores_${fecha.getFullYear()}_${fecha.getMonth() + 1}.xlsx`;
+
+      XLSX.writeFile(workbook, nombreArchivo);
+    }
+  </script>
+
+<script>
+  const usuariosAutorizados = [
+    { nombre: "JHolgui", clave: "JH1234" },
+    { nombre: "JJimenez", clave: "admin2024" },
+    { nombre: "CRosario", clave: "CR1234" }
+  ];
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const nombre = prompt("Ingrese su nombre:");
+    const clave = prompt("Ingrese su clave:");
+
+    const autorizado = usuariosAutorizados.find(
+      user => user.nombre.toLowerCase() === nombre?.toLowerCase() && user.clave === clave
+    );
+
+    if (!autorizado) {
+      alert("Acceso denegado. Serás redirigido.");
+      window.location.href = "index.html"; // 🔁 Redirección a pedidos
+    }
+  });
+</script>
+
+
+</body>
+</html>

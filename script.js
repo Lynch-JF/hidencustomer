@@ -32,6 +32,7 @@ const HORAS_SALIDA = {
 };
 
 window.onload = () => {
+    verificarMesActual(); 
   const saved = JSON.parse(localStorage.getItem("pedidos")) || {};
   Object.values(saved).forEach(pedido => reconstruirPedido(pedido));
 };
@@ -177,28 +178,44 @@ function autoReanudar(index) {
 
 function finalizar(index) {
   const now = new Date();
-  document.getElementById(`end-${index}`).textContent = now.toLocaleString();
+
+  // ✅ Formato de fecha corta:
+  const fechaCorta = now.toLocaleDateString(); 
+  document.getElementById(`end-${index}`).textContent = fechaCorta;
+
   clearInterval(timers[index]);
 
   const data = pausedTimers[index];
   const total = data.cantidad;
+
   const cantidadSacada = parseInt(prompt(`¿Cuántos productos se sacaron del pedido? (Esperado: ${total})`), 10);
   if (isNaN(cantidadSacada) || cantidadSacada < 0 || cantidadSacada > total) {
     alert("Cantidad inválida.");
     return;
   }
 
-const porcentaje = Math.round((cantidadSacada / total) * 100);
-const duracionMs = now.getTime() - data.startTimestamp - data.pausedDuration;
-const minutosTotales = duracionMs / 60000; // ✅ Precisión decimal sin redondear hacia abajo
-const promedioMinPorProducto = (cantidadSacada > 0)
-  ? (minutosTotales / cantidadSacada).toFixed(2)
-  : "0.00";
+  const porcentaje = Math.round((cantidadSacada / total) * 100);
+  const duracionMs = now.getTime() - data.startTimestamp - data.pausedDuration;
+  const minutosTotales = duracionMs / 60000;
 
+  let tiempoFormateado = "0";
 
-  document.getElementById(`tpp-${index}`).textContent = `${promedioMinPorProducto} min`;
+if (cantidadSacada > 0) {
+  const tiempoPorProducto = minutosTotales / cantidadSacada;
 
-  alert(`${data.sacador} sacó un ${porcentaje}% del pedido.\nTiempo por producto: ${promedioMinPorProducto} min`);
+  if (tiempoPorProducto >= 1) {
+    const minutosRedondeados = Math.round(tiempoPorProducto);
+    tiempoFormateado = `${minutosRedondeados} min${minutosRedondeados === 1 ? "" : "s"} /prod`;
+  } else {
+    const segundosPorProducto = Math.round(tiempoPorProducto * 60);
+    tiempoFormateado = `${segundosPorProducto} seg${segundosPorProducto === 1 ? "" : "s"} /prod`;
+  }
+}
+
+  // ✅ Mostrar en pantalla
+  document.getElementById(`tpp-${index}`).textContent = tiempoFormateado;
+
+  alert(`${data.sacador} sacó un ${porcentaje}% del pedido.\nTiempo por producto: ${tiempoFormateado}`);
 
   const task = document.getElementById(`codigo-${index}`).closest(".task");
   task.style.backgroundColor = "#d4edda";
@@ -216,7 +233,7 @@ const promedioMinPorProducto = (cantidadSacada > 0)
 
   data.finalizado = true;
   data.endTimestamp = now.getTime();
-  data.tiempoPorProducto = promedioMinPorProducto;
+  data.tiempoPorProducto = tiempoFormateado;
   guardarPedidos();
 
   fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17", {
@@ -232,12 +249,12 @@ const promedioMinPorProducto = (cantidadSacada > 0)
       "HoraInicio ": new Date(data.startTimestamp).toISOString(),
       "HoraFin ": new Date(data.endTimestamp).toISOString(),
       "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
-      "Tiempoitms": promedioMinPorProducto
+      "Tiempoitms": tiempoFormateado
     })
   })
-  .then(res => res.text())
-  .then(text => console.log("✅ Datos enviados a Sheets vía Sheet.best:", text))
-  .catch(err => console.error("❌ Error al enviar a Sheet.best:", err));
+    .then(res => res.text())
+    .then(text => console.log("✅ Datos enviados a Sheets vía Sheet.best:", text))
+    .catch(err => console.error("❌ Error al enviar a Sheet.best:", err));
 
   delete timers[index];
 }
@@ -277,6 +294,18 @@ function reanudar(index) { autoReanudar(index); }
 function pausarTodos() { for (let i in pausedTimers) autoPause(i, "manual"); }
 function reanudarTodos() { for (let i in pausedTimers) autoReanudar(i); }
 
+function formatearFecha(timestamp) {
+  const fecha = new Date(timestamp);
+  const opcionesFecha = { day: '2-digit', month: '2-digit' };
+  const opcionesHora = { hour: '2-digit', minute: '2-digit', hour12: true };
+
+  const fechaStr = fecha.toLocaleDateString('es-ES', opcionesFecha); // ej: "19/07"
+  const horaStr = fecha.toLocaleTimeString('es-ES', opcionesHora).toLowerCase(); // ej: "04:40 p. m."
+
+  return `${fechaStr}; ${horaStr.replace('.', '').replace(/\s/g, '')}`; // quita espacios y puntos extra
+}
+
+
 function reconstruirPedido(pedido) {
   const index = pedido.index;
   const task = document.createElement("div");
@@ -288,8 +317,8 @@ function reconstruirPedido(pedido) {
     </div>
     <p id="sacador-${index}">${pedido.sacador}</p>
     <p>Cantidad de productos: <span>${pedido.cantidad}</span></p>
-    <p>Inicio: <span id="start-${index}">${pedido.startTimeStr || new Date(pedido.startTimestamp).toLocaleString()}</span></p>
-    <p>Final: <span id="end-${index}">${pedido.endTimestamp ? new Date(pedido.endTimestamp).toLocaleString() : '--/-- --:--:--'}</span></p>
+   <p>Inicio: <span id="start-${index}">${pedido.startTimeStr || formatearFecha(pedido.startTimestamp)}</span></p>
+   <p>Final: <span id="end-${index}">${pedido.endTimestamp ? formatearFecha(pedido.endTimestamp) : '--/-- --:--'}</span></p>
     <p>Tiempo: <span id="timer-${index}">00:00:00</span></p>
     <p>Tiempo por producto: <span id="tpp-${index}">${pedido.tiempoPorProducto ? pedido.tiempoPorProducto + ' min' : '--'}</span></p>
     <button onclick="pausar(${index})">Pausar</button>
@@ -322,3 +351,18 @@ function eliminarTodos() {
   }
 }
 
+function verificarMesActual() {
+  const now = new Date();
+  const mesActual = now.getMonth();
+  const añoActual = now.getFullYear();
+  const claveMes = "mes_actual_guardado";
+  const claveSacadores = `sacadores_${añoActual}_${mesActual}`;
+
+  const mesGuardado = parseInt(localStorage.getItem(claveMes), 10);
+
+  if (isNaN(mesGuardado) || mesGuardado !== mesActual) {
+    // Cambió el mes, limpiar ranking
+    localStorage.setItem(claveSacadores, "{}");
+    localStorage.setItem(claveMes, mesActual);
+  }
+}
