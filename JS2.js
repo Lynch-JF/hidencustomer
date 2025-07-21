@@ -1,5 +1,5 @@
 function obtenerTop3SacadoresRapidos() {
-  fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17")
+  fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd")
     .then(response => response.json())
     .then(data => {
       const ahora = new Date();
@@ -75,7 +75,7 @@ lista.innerHTML = top3.map((item, i) => `
 
 
 function mostrarHistorialGanadores() {
-  fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17")
+  fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd")
     .then(res => res.json())
     .then(data => {
       const historial = {};
@@ -125,7 +125,7 @@ function toggleHistorial() {
 }
 
 function mostrarHistorialGanadores() {
-  fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17")
+  fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd")
     .then(res => res.json())
     .then(data => {
       const historial = {};
@@ -189,7 +189,7 @@ function renderizarHistorial(ganadores) {
 }
 
 function mostrarSacadoresDelMes() {
-  fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17")
+  fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd")
     .then(res => res.json())
     .then(data => {
       const ahora = new Date();
@@ -292,7 +292,7 @@ mostrarSacadoresDelMes();
 let sacadoresArrayGlobal = []; // <- fuera de la función
 
 function mostrarSacadoresDelMes() {
-  fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17")
+  fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd")
     .then(res => res.json())
     .then(data => {
       const ahora = new Date();
@@ -357,7 +357,7 @@ function mostrarSacadoresDelMes() {
     .catch(err => console.error("❌ Error al cargar sacadores del mes:", err));
 }
 
- const API_SHEET = "https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17";
+ const API_SHEET = "https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd";
 
   document.getElementById("filtro-fecha").addEventListener("change", function() {
     const valor = this.value;
@@ -490,7 +490,7 @@ function mostrarSacadoresDelMes() {
 
   // Función que filtra y retorna los pedidos según rango, sin renderizar tabla
 function obtenerPedidosFiltrados(rango) {
-  return fetch("https://api.sheetbest.com/sheets/e5698a50-c77c-47ee-895a-eeb9c29c7a17")
+  return fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd")
     .then(res => res.json())
     .then(data => {
       const ahora = new Date();
