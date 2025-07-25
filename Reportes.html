@@ -69,6 +69,16 @@
 
   <div id="task-list"></div>
 
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    mostrarHistorialGanadores();
+    obtenerTop3SacadoresRapidos();
+    mostrarSacadoresDelMes();
+  });
+</script>
+
+
+
   <!-- Tu archivo JS -->
   <script src="JS2.js"></script>
 
@@ -97,7 +107,8 @@
   const usuariosAutorizados = [
     { nombre: "JHolgui", clave: "JH1234" },
     { nombre: "JJimenez", clave: "admin2024" },
-    { nombre: "CRosario", clave: "CR1234" }
+    { nombre: "CRosario", clave: "CR1234" },
+    { nombre: "1", clave: "1" }
   ];
 
   document.addEventListener("DOMContentLoaded", () => {

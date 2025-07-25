@@ -8,21 +8,18 @@ function obtenerTop3SacadoresRapidos() {
 
       const tiempos = {};
 
-      // Función para convertir "0:02:41" a minutos decimales
+      // ✅ Función corregida para convertir "10 mins /prod" a 10
       function tiempoAminutos(tiempoStr) {
-        const partes = tiempoStr.split(":");
-        if (partes.length !== 3) return NaN;
-
-        const [h, m, s] = partes.map(n => parseInt(n));
-        if (isNaN(h) || isNaN(m) || isNaN(s)) return NaN;
-
-        return h * 60 + m + s / 60;
+        if (!tiempoStr) return NaN;
+        const match = tiempoStr.match(/(\d+(?:\.\d+)?)\s*min/i);
+        if (!match) return NaN;
+        return parseFloat(match[1]);
       }
 
-      data.forEach((pedido, i) => {
+      data.forEach((pedido) => {
         const horaFin = (pedido["HoraFin"] || pedido["HoraFin "] || "").trim();
         const sacador = (pedido["Sacador"] || pedido["Sacador "] || "").trim();
-        const tiempoStr = (pedido["Tiempoitms"] || "").trim();
+        const tiempoStr = (pedido["Tiempoitms"] || pedido["Tiempoitms "] || "").trim();
 
         const fechaFin = new Date(horaFin);
         const tiempoPorProducto = tiempoAminutos(tiempoStr);
@@ -57,6 +54,7 @@ function obtenerTop3SacadoresRapidos() {
     })
     .catch(err => console.error("❌ Error al obtener ranking:", err));
 }
+
 
 
 
@@ -190,72 +188,62 @@ function renderizarHistorial(ganadores) {
 
 function mostrarSacadoresDelMes() {
   fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd")
-    .then(res => res.json())
+    .then(response => response.json())
     .then(data => {
       const ahora = new Date();
       const mesActual = ahora.getMonth();
       const añoActual = ahora.getFullYear();
 
-      const sacadores = {};
+      const conteoSacadores = {};
+      const totalTiempos = {};
 
-      // Función para convertir 0:02:41 a minutos decimales
-      function tiempoAminutos(str) {
-        const partes = str.split(":");
-        if (partes.length !== 3) return NaN;
-        const [h, m, s] = partes.map(Number);
-        return h * 60 + m + s / 60;
+      // ✅ Función corregida para extraer minutos de "10 mins /prod"
+      function tiempoAminutos(tiempoStr) {
+        if (!tiempoStr) return NaN;
+        const match = tiempoStr.match(/(\d+(?:\.\d+)?)\s*min/i);
+        if (!match) return NaN;
+        return parseFloat(match[1]);
       }
 
       data.forEach(pedido => {
-        const fechaStr = (pedido["HoraFin"] || pedido["HoraFin "] || "").trim();
-        const fecha = new Date(fechaStr);
-        if (isNaN(fecha)) return;
+        const horaFin = (pedido["HoraFin"] || pedido["HoraFin "] || "").trim();
+        const sacador = (pedido["Sacador"] || pedido["Sacador "] || "").trim();
+        const tiempoStr = (pedido["Tiempoitms"] || pedido["Tiempoitms "] || "").trim();
 
-        if (fecha.getMonth() === mesActual && fecha.getFullYear() === añoActual) {
-          const sacadorRaw = (pedido["Sacador"] || pedido["Sacador "] || "Desconocido").trim();
+        const fechaFin = new Date(horaFin);
+        const tiempoPorProducto = tiempoAminutos(tiempoStr);
 
-          // Filtrar equipos (contienen "/")
-          if (sacadorRaw.includes("/")) return;
-
-          const tiempoStr = (pedido["Tiempoitms"] || "").trim();
-          const tiempoPorProducto = tiempoAminutos(tiempoStr);
-          if (isNaN(tiempoPorProducto)) return;
-
-          if (!sacadores[sacadorRaw]) {
-            sacadores[sacadorRaw] = {
-              totalPedidos: 0,
-              sumaTiempos: 0,
-              cantidadTiempos: 0,
-            };
+        if (
+          sacador &&
+          !sacador.includes("/") &&
+          !isNaN(fechaFin) &&
+          fechaFin.getMonth() === mesActual &&
+          fechaFin.getFullYear() === añoActual &&
+          !isNaN(tiempoPorProducto)
+        ) {
+          if (!conteoSacadores[sacador]) {
+            conteoSacadores[sacador] = 0;
+            totalTiempos[sacador] = 0;
           }
 
-          sacadores[sacadorRaw].totalPedidos++;
-          sacadores[sacadorRaw].sumaTiempos += tiempoPorProducto;
-          sacadores[sacadorRaw].cantidadTiempos++;
+          conteoSacadores[sacador]++;
+          totalTiempos[sacador] += tiempoPorProducto;
         }
       });
 
-      const sacadoresArray = Object.entries(sacadores).map(([nombre, datos]) => ({
-        nombre,
-        totalPedidos: datos.totalPedidos,
-        promedioTiempo: datos.sumaTiempos / datos.cantidadTiempos,
-      }));
+      const listaSacadores = document.getElementById("lista-sacadores");
+      listaSacadores.innerHTML = "";
 
-      sacadoresArray.sort((a, b) => a.promedioTiempo - b.promedioTiempo);
-
-      document.getElementById("mes-actual").textContent = `${obtenerNombreMes(mesActual)} ${añoActual}`;
-
-      const listaHTML = sacadoresArray.map(s => `
-        <li>
-          <strong>${s.nombre}</strong>: ${s.totalPedidos} pedido${s.totalPedidos !== 1 ? "s" : ""}, 
-          promedio <em>${s.promedioTiempo.toFixed(2)} min/producto</em>
-        </li>
-      `).join("");
-
-      document.getElementById("lista-sacadores").innerHTML = listaHTML;
+      Object.keys(conteoSacadores).forEach(sacador => {
+        const promedio = totalTiempos[sacador] / conteoSacadores[sacador];
+        const li = document.createElement("li");
+        li.textContent = `${sacador}: ${conteoSacadores[sacador]} pedidos, promedio ${promedio.toFixed(2)} min/item`;
+        listaSacadores.appendChild(li);
+      });
     })
-    .catch(err => console.error("❌ Error al cargar sacadores del mes:", err));
+    .catch(err => console.error("❌ Error al filtrar pedidos:", err));
 }
+
 
 // Función toggle para desplegar la lista
 function toggleListaSacadores() {
@@ -525,13 +513,12 @@ function filtrarPedidos(rango) {
       // Lógica para agrupar y renderizar tabla
       const sacadoresMap = {};
 
-      function tiempoAminutos(tiempoStr) {
-        if (!tiempoStr) return NaN;
-        const partes = tiempoStr.split(":");
-        if (partes.length !== 3) return NaN;
-        const [h, m, s] = partes.map(Number);
-        return h * 60 + m + s / 60;
-      }
+     function tiempoAminutos(tiempoStr) {
+  if (!tiempoStr) return NaN;
+  const match = tiempoStr.match(/(\d+(?:\.\d+)?)\s*min/i);
+  if (!match) return NaN;
+  return parseFloat(match[1]);
+}
 
       pedidosFiltrados.forEach(pedido => {
         const sacador = (pedido["Sacador "] || pedido["Sacador"] || "").trim() || "Sin nombre";
@@ -625,3 +612,7 @@ function estaMismaSemana(fecha, referencia) {
 
   return fecha >= inicio && fecha <= fin;
 }
+
+mostrarHistorialGanadores();
+obtenerTop3SacadoresRapidos();
+mostrarSacadoresDelMes();
