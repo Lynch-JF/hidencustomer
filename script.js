@@ -37,6 +37,34 @@ window.onload = () => {
   Object.values(saved).forEach(pedido => reconstruirPedido(pedido));
 };
 
+function pad(n) {
+  return n.toString().padStart(2, '0');
+}
+
+function formatDateTime(date) {
+  if (!(date instanceof Date)) date = new Date(date);
+  const d = pad(date.getDate());
+  const m = pad(date.getMonth() + 1);
+  const y = date.getFullYear();
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  return `${d}/${m}/${y} ${hh}:${mm}:${ss}`;
+}
+
+function formatTime(totalSeconds) {
+  totalSeconds = Number(totalSeconds) || 0;
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+// Garantizar que esté disponible globalmente
+window.formatDateTime = formatDateTime;
+window.formatTime = formatTime;
+
+
 function agregarPedido() {
   if (!confirm("¿Seguro que deseas agregar otro pedido?")) {
     return;
@@ -63,21 +91,22 @@ function agregarPedido() {
 
   const task = document.createElement("div");
   task.className = "task";
-  task.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 id="codigo-${index}">${codigo}</h3>
-      <button onclick="eliminar(${index})" style="background:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;">X</button>
-    </div>
-    <p id="sacador-${index}">${sacador}</p>
-    <p>Cantidad de productos: <span>${cantidad}</span></p>
-    <p>Inicio: <span id="start-${index}">${now.toLocaleString()}</span></p>
-    <p>Final: <span id="end-${index}">--/-- --:--:--</span></p>
-    <p>Tiempo: <span id="timer-${index}">00:00:00</span></p>
-    <p>Tiempo por producto: <span id="tpp-${index}">--</span></p>
-    <button onclick="pausar(${index})">Pausar</button>
-    <button onclick="reanudar(${index})">Reanudar</button>
-    <button onclick="finalizar(${index})">Finalizar</button>
-  `;
+task.innerHTML = `
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h3 id="codigo-${index}">${codigo}</h3>
+    <button onclick="eliminar(${index})" style="background:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;">X</button>
+  </div>
+  <p id="sacador-${index}">${sacador}</p>
+  <p>Cantidad de productos: <span>${cantidad}</span></p>
+  <p>Inicio: <span id="start-${index}">${formatDateTime(now)}</span></p>
+  <p>Final: <span id="end-${index}">--/--/---- --:--:--</span></p>
+  <p>Tiempo: <span id="timer-${index}">00:00:00</span></p>
+  <p>Tiempo por producto: <span id="tpp-${index}">--</span></p>
+  <button onclick="pausar(${index})">Pausar</button>
+  <button onclick="reanudar(${index})">Reanudar</button>
+  <button onclick="finalizar(${index})">Finalizar</button>
+`;
+
   taskList.appendChild(task);
 
   pausedTimers[index] = {
@@ -176,11 +205,27 @@ function autoReanudar(index) {
   }
 }
 
+// Formatea fecha para enviar a Sheets (YYYY-MM-DD HH:MM:SS)
+function formatDateTime(date) {
+  const pad = n => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+         `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+// Formatea duración en segundos a HH:MM:SS
+function formatTime(totalSeconds) {
+  totalSeconds = Math.floor(totalSeconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function finalizar(index) {
   const now = new Date();
 
-  // ✅ Formato de fecha corta:
-  const fechaCorta = now.toLocaleDateString(); 
+  // Formato de fecha para mostrar
+  const fechaCorta = formatDateTime(now);
   document.getElementById(`end-${index}`).textContent = fechaCorta;
 
   clearInterval(timers[index]);
@@ -195,24 +240,20 @@ function finalizar(index) {
   }
 
   const porcentaje = Math.round((cantidadSacada / total) * 100);
+
+  // Calcular duración real SIN tiempo en pausa
   const duracionMs = now.getTime() - data.startTimestamp - data.pausedDuration;
   const minutosTotales = duracionMs / 60000;
 
-  let tiempoFormateado = "0";
+  let tiempoFormateado = "00:00:00";
+  let tiempoPorProductoSegundos = 0;
 
-if (cantidadSacada > 0) {
-  const tiempoPorProducto = minutosTotales / cantidadSacada;
-
-  if (tiempoPorProducto >= 1) {
-    const minutosRedondeados = Math.round(tiempoPorProducto);
-    tiempoFormateado = `${minutosRedondeados} min${minutosRedondeados === 1 ? "" : "s"} /prod`;
-  } else {
-    const segundosPorProducto = Math.round(tiempoPorProducto * 60);
-    tiempoFormateado = `${segundosPorProducto} seg${segundosPorProducto === 1 ? "" : "s"} /prod`;
+  if (cantidadSacada > 0) {
+    tiempoPorProductoSegundos = duracionMs / 1000 / cantidadSacada; // en segundos
+    tiempoFormateado = formatTime(Math.floor(tiempoPorProductoSegundos)); // HH:MM:SS
   }
-}
 
-  // ✅ Mostrar en pantalla
+  // Mostrar en pantalla
   document.getElementById(`tpp-${index}`).textContent = tiempoFormateado;
 
   alert(`${data.sacador} sacó un ${porcentaje}% del pedido.\nTiempo por producto: ${tiempoFormateado}`);
@@ -231,26 +272,30 @@ if (cantidadSacada > 0) {
     task.appendChild(eliminarBtn);
   }
 
+  // Guardar datos en memoria
   data.finalizado = true;
   data.endTimestamp = now.getTime();
   data.tiempoPorProducto = tiempoFormateado;
   guardarPedidos();
 
+  // Enviar a Google Sheets
   fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd", {
     method: "POST",
     mode: "cors",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      "Codigo P": data.codigo,
-      "Sacador ": data.sacador,
-      "CantidadProductos ": data.cantidad,
-      "HoraInicio ": new Date(data.startTimestamp).toISOString(),
-      "HoraFin ": new Date(data.endTimestamp).toISOString(),
-      "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
-      "Tiempoitms": tiempoFormateado
-    })
+  body: JSON.stringify({
+  "Codigo P": data.codigo,
+  "Sacador ": data.sacador,
+  "CantidadProductos ": data.cantidad,
+  "HoraInicio ": formatDateTime(new Date(data.startTimestamp)), // texto
+  "HoraFin ": formatDateTime(new Date(data.endTimestamp)), // texto
+  "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)), // HH:MM:SS
+  "TiempoPorProductoSegundos": tiempoPorProductoSegundos.toFixed(2), // número en segundos
+  "TiempoPorProducto": tiempoFormateado // HH:MM:SS
+})
+
   })
     .then(res => res.text())
     .then(text => console.log("✅ Datos enviados a Sheets vía Sheet.best:", text))
@@ -258,6 +303,8 @@ if (cantidadSacada > 0) {
 
   delete timers[index];
 }
+
+
 
 function eliminar(index) {
   delete pausedTimers[index];
@@ -267,12 +314,15 @@ function eliminar(index) {
   guardarPedidos();
 }
 
-function formatTime(s) {
-  const h = String(Math.floor(s / 3600)).padStart(2, '0');
-  const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-  const sec = String(s % 60).padStart(2, '0');
-  return `${h}:${m}:${sec}`;
+function formatTime(totalSeconds) {
+  totalSeconds = Math.floor(totalSeconds); // asegúrate de entero
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
+
+
 
 function getFutureTime(date, timeStr) {
   const [h, m, s] = timeStr.split(":").map(Number);
