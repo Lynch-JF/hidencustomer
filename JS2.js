@@ -1,4 +1,4 @@
-const API_SHEET = "https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd";
+const API_SHEET = "https://api.sheetbest.com/sheets/aa884681-ee43-48d7-8411-710416c171e5";
 
 let resumenSacadores = []; 
 let pedidosFiltrados = []; 
@@ -304,9 +304,9 @@ function iniciarAutoRefreshPedidos() {
 
 // ---------- Inicialización ----------
 window.onload = () => {
-  filtrarPedidos("mes"); 
+  filtrarPedidos("hoy"); 
   mostrarHistorialGanadores();
   obtenerTop3SacadoresRapidos();
-  filtrarPedidos('mesPasado');
+  filtrarPedidos('hoy');
   iniciarAutoRefreshPedidos(); // Panel de pedidos en progreso
 };
