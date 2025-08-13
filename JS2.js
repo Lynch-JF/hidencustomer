@@ -4,7 +4,7 @@ let resumenSacadores = [];
 let pedidosFiltrados = []; 
 let graficaTiempo = null;
 
-// Funciones de fecha
+// ---------- Funciones de fecha ----------
 function esMismaFecha(f1, f2) {
   return f1.getFullYear() === f2.getFullYear() &&
          f1.getMonth() === f2.getMonth() &&
@@ -29,7 +29,7 @@ function obtenerNombreMes(mes) {
   return nombres[mes] || "Mes desconocido";
 }
 
-// Filtrar pedidos según rango
+// ---------- Filtrar pedidos ----------
 function obtenerPedidosFiltrados(rango) {
   return fetch(API_SHEET)
     .then(res => res.json())
@@ -61,7 +61,7 @@ function obtenerPedidosFiltrados(rango) {
     });
 }
 
-// Renderizar tabla resumen sacadores
+// ---------- Renderizar tabla resumen ----------
 function renderizarTablaResumenSacadores(resumen) {
   const tbody = document.querySelector("#tabla-pedidos-filtrados tbody");
   if (!tbody) return;
@@ -82,7 +82,7 @@ function renderizarTablaResumenSacadores(resumen) {
   `).join("");
 }
 
-// Actualizar conteo
+// ---------- Actualizar conteo ----------
 function actualizarConteoPedidos(totalPedidos) {
   const conteoDiv = document.getElementById("conteo-pedidos");
   if (conteoDiv) {
@@ -90,7 +90,7 @@ function actualizarConteoPedidos(totalPedidos) {
   }
 }
 
-// Filtrar y renderizar resumen sacadores usando columna "Grafica"
+// ---------- Filtrar y renderizar resumen ----------
 function filtrarPedidos(rango) {
   if (rango === "ningun") {
     renderizarTablaResumenSacadores([]);
@@ -107,7 +107,7 @@ function filtrarPedidos(rango) {
 
       pedidos.forEach(pedido => {
         const sacador = (pedido["Sacador "] || pedido["Sacador"] || "").trim();
-        if (!sacador || sacador.includes("/")) return; // ❌ Excluir equipos
+        if (!sacador || sacador.includes("/")) return; // Excluir equipos
 
         const cantidad = parseInt(pedido["CantidadProductos "] || pedido["CantidadProductos"] || "0",10);
         const tiempoPorProducto = parseFloat(pedido["Grafica"]);
@@ -131,7 +131,7 @@ function filtrarPedidos(rango) {
         promedioTiempo: datos.cantidadTiempos > 0 ? (datos.sumaTiempos / datos.cantidadTiempos) : 0
       }));
 
-      // 🔽 Ordenar de mayor a menor tiempo promedio
+      // Ordenar de mayor a menor tiempo promedio
       resumenSacadores.sort((a,b) => b.promedioTiempo - a.promedioTiempo);
 
       renderizarTablaResumenSacadores(resumenSacadores);
@@ -145,7 +145,7 @@ function filtrarPedidos(rango) {
     });
 }
 
-// Actualizar gráfico
+// ---------- Actualizar gráfico ----------
 function actualizarGraficaTiempos(resumen) {
   const ctx = document.getElementById("grafica-tiempo").getContext("2d");
   const labels = resumen.map(item => item.sacador);
@@ -170,10 +170,7 @@ function actualizarGraficaTiempos(resumen) {
       },
       options: {
         responsive: true,
-        plugins: {
-          legend: { display:true },
-          tooltip: { enabled:true }
-        },
+        plugins: { legend:{display:true}, tooltip:{enabled:true} },
         scales: {
           y: { beginAtZero:true, title:{display:true,text:'Minutos'} },
           x: { title:{display:true,text:'Sacadores'} }
@@ -183,7 +180,7 @@ function actualizarGraficaTiempos(resumen) {
   }
 }
 
-// Top 3 sacadores más rápidos
+// ---------- Top 3 sacadores más rápidos ----------
 function obtenerTop3SacadoresRapidos() {
   fetch(API_SHEET)
     .then(res => res.json())
@@ -195,7 +192,7 @@ function obtenerTop3SacadoresRapidos() {
 
       data.forEach(pedido => {
         const sacador = (pedido["Sacador "] || pedido["Sacador"] || "").trim();
-        if (!sacador || sacador.includes("/")) return; // ❌ Excluir equipos
+        if (!sacador || sacador.includes("/")) return;
 
         const fechaFin = new Date(pedido["HoraFin "] || pedido["HoraFin"] || "");
         const tiempoPorProducto = parseFloat(pedido["Grafica"]);
@@ -225,7 +222,7 @@ function mostrarRankingRapidos(top3) {
   `).join("");
 }
 
-// Historial ganadores
+// ---------- Historial ganadores ----------
 function mostrarHistorialGanadores() {
   fetch(API_SHEET)
     .then(res => res.json())
@@ -270,9 +267,46 @@ function renderizarHistorial(ganadores) {
   `;
 }
 
-// Al cargar la página
+// ---------- Pedidos en progreso ----------
+function mostrarPedidosEnProgreso() {
+  fetch(API_SHEET)
+    .then(res => res.json())
+    .then(data => {
+      const pedidosProgreso = data.filter(p => {
+        const horaFin = (p["HoraFin "] || p["HoraFin"] || "").trim();
+        return !horaFin || isNaN(new Date(horaFin));
+      });
+
+      const lista = document.getElementById("lista-pedidos-progreso");
+      if (!lista) return;
+
+      if (pedidosProgreso.length === 0) {
+        lista.innerHTML = `<li>No hay pedidos en progreso.</li>`;
+        return;
+      }
+
+      lista.innerHTML = pedidosProgreso.map(p => `
+        <li style="padding:5px 0; border-bottom:1px solid #eee;">
+          <strong>${(p["Sacador "] || p["Sacador"] || "Sin nombre").trim()}</strong> 
+          - Productos: ${p["CantidadProductos "] || p["CantidadProductos"] || 0} 
+          - Hora Inicio: ${p["HoraInicio "] || p["HoraInicio"] || "-"}
+        </li>
+      `).join("");
+    })
+    .catch(err => console.error("❌ Error al mostrar pedidos en progreso:", err));
+}
+
+// ---------- Auto-refresh cada 5 min ----------
+function iniciarAutoRefreshPedidos() {
+  mostrarPedidosEnProgreso(); // Primera carga
+  setInterval(mostrarPedidosEnProgreso, 5*60*1000);
+}
+
+// ---------- Inicialización ----------
 window.onload = () => {
   filtrarPedidos("mes"); 
   mostrarHistorialGanadores();
   obtenerTop3SacadoresRapidos();
+  filtrarPedidos('mesPasado');
+  iniciarAutoRefreshPedidos(); // Panel de pedidos en progreso
 };

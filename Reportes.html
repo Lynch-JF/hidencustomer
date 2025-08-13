@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lista de Tareas</title>
+  <title>Gestión de Pedidos</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -22,45 +23,18 @@
     </ul>
   </nav>
 
- <!-- <div class="card-ranking" id="card-ranking">
-    <h2>🏆 Top 3 Sacadores del Mes</h2>
-    <ul id="lista-top-sacadores">
-      <li>No hay datos aún.</li>
-    </ul>
+  <div id="conteo-pedidos" style="margin: 15px 0; font-weight: bold; font-size: 18px;">
+    📦 Total de pedidos en este periodo: 0
   </div>
 
-  <div class="card-historial" id="card-sacadores">
-    <button class="accordion-btn" onclick="toggleListaSacadores()">
-      📋 Sacadores del Mes (<span id="mes-actual"></span>) ⬇️
-    </button>
-    <div id="contenedor-sacadores" class="accordion-content">
-      <ul id="lista-sacadores" class="sacadores-lista"></ul>
-    </div>
-  </div>-->
-
-
-<div id="conteo-pedidos" style="margin: 15px 0; font-weight: bold; font-size: 18px;">
-  📦 Total de pedidos en este periodo: 0
-</div>
-
- <!-- <label for="filtro-fecha">Filtrar por fecha: </label>
-<select id="filtro-fecha">
-  <option value="ningun">Ninguna opción</option>
-  <option value="hoy">Hoy</option>
-  <option value="ayer">Ayer</option>
-  <option value="semana">Esta semana</option>
-  <option value="mes">Este mes</option>
-  <option value="todos">Todos</option>
-</select>-->
-
-<div id="filtros">
-  <button onclick="filtrarPedidos('hoy')">Hoy</button>
-  <button onclick="filtrarPedidos('ayer')">Ayer</button>
-  <button onclick="filtrarPedidos('semana')">Esta Semana</button>
-  <button onclick="filtrarPedidos('mes')">Este Mes</button>
-  <button onclick="filtrarPedidos('mesPasado')">Mes Pasado</button> <!-- Nuevo botón -->
-  <button onclick="filtrarPedidos('todos')">Todos</button>
-</div>
+  <div id="filtros">
+    <button onclick="filtrarPedidos('hoy')">Hoy</button>
+    <button onclick="filtrarPedidos('ayer')">Ayer</button>
+    <button onclick="filtrarPedidos('semana')">Esta Semana</button>
+    <button onclick="filtrarPedidos('mes')">Este Mes</button>
+    <button onclick="filtrarPedidos('mesPasado')">Mes Pasado</button>
+    <button onclick="filtrarPedidos('todos')">Todos</button>
+  </div>
 
   <table border="1" id="tabla-pedidos-filtrados">
     <thead>
@@ -74,69 +48,82 @@
     </thead>
     <tbody></tbody>
   </table>
-<div class="mensaje" id="mensaje"></div>
 
-  <div id="task-list"></div>
+  <div class="mensaje" id="mensaje"></div>
 
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    mostrarHistorialGanadores();
-    obtenerTop3SacadoresRapidos();
-    mostrarSacadoresDelMes();
-  });
-</script>
+  <!-- Panel de pedidos en progreso -->
+  <!-- Card de pedidos en progreso -->
+<div class="card-pedidos-progreso" style="margin:20px 0; padding:15px; border:1px solid #ccc; border-radius:8px; background:#f9f9f9;">
+  <h2>🚧 Pedidos en Progreso</h2>
+  <ul id="lista-pedidos-progreso">
+    <li>Cargando pedidos en progreso...</li>
+  </ul>
+</div>
 
 
+  <canvas id="grafica-tiempo" width="400" height="200"></canvas>
 
   <!-- Tu archivo JS -->
   <script src="JS2.js"></script>
 
-  <!-- Script para exportar Excel -->
   <script>
-    document.getElementById("btn-exportar").addEventListener("click", exportarSacadoresAExcel);
+    // Auto reset cada 5 minutos (300000 ms)
+    setInterval(() => {
+      location.reload();
+    }, 300000);
 
+    // Mostrar datos al cargar
+    document.addEventListener("DOMContentLoaded", () => {
+      filtrarPedidos('mes'); // Mostrar resumen por defecto
+      mostrarHistorialGanadores();
+      obtenerTop3SacadoresRapidos();
+      mostrarPedidosEnProgreso();
+    });
+
+    // Exportar a Excel
+    document.getElementById("btn-exportar").addEventListener("click", exportarSacadoresAExcel);
     function exportarSacadoresAExcel() {
-      if (sacadoresArrayGlobal.length === 0) {
+      if (!resumenSacadores || resumenSacadores.length === 0) {
         alert("No hay datos para exportar.");
         return;
       }
-
-      const worksheet = XLSX.utils.json_to_sheet(sacadoresArrayGlobal);
+      const worksheet = XLSX.utils.json_to_sheet(resumenSacadores);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Sacadores del Mes");
-
       const fecha = new Date();
       const nombreArchivo = `Sacadores_${fecha.getFullYear()}_${fecha.getMonth() + 1}.xlsx`;
-
       XLSX.writeFile(workbook, nombreArchivo);
     }
-  </script>
 
-<script>
-  const usuariosAutorizados = [
-    { nombre: "JHolgui", clave: "JH1234" },
-    { nombre: "JJimenez", clave: "admin2024" },
-    { nombre: "CRosario", clave: "CR1234" },
-    { nombre: "1", clave: "1" }
-  ];
+    // Función para mostrar pedidos en progreso
+    function mostrarPedidosEnProgreso() {
+      fetch(API_SHEET)
+        .then(res => res.json())
+        .then(data => {
+          const pedidosProgreso = data.filter(p => {
+            const horaFin = (p["HoraFin "] || p["HoraFin"] || "").trim();
+            return !horaFin || isNaN(new Date(horaFin));
+          });
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const nombre = prompt("Ingrese su nombre:");
-    const clave = prompt("Ingrese su clave:");
+          const tbody = document.querySelector("#tabla-pedidos-progreso tbody");
+          if (!tbody) return;
 
-    const autorizado = usuariosAutorizados.find(
-      user => user.nombre.toLowerCase() === nombre?.toLowerCase() && user.clave === clave
-    );
+          if (pedidosProgreso.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4">No hay pedidos en progreso.</td></tr>`;
+            return;
+          }
 
-    if (!autorizado) {
-      alert("Acceso denegado. Serás redirigido.");
-      window.location.href = "index.html"; // 🔁 Redirección a pedidos
+          tbody.innerHTML = pedidosProgreso.map((p, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${(p["Sacador "] || p["Sacador"] || "Sin nombre").trim()}</td>
+              <td>${p["CantidadProductos "] || p["CantidadProductos"] || 0}</td>
+              <td>${p["HoraInicio "] || p["HoraInicio"] || "-"}</td>
+            </tr>
+          `).join("");
+        })
+        .catch(err => console.error("❌ Error al mostrar pedidos en progreso:", err));
     }
-  });
-</script>
-<canvas id="grafica-tiempo" width="400" height="200"></canvas>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-
+  </script>
 </body>
 </html>

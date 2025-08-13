@@ -279,7 +279,7 @@ function finalizar(index) {
   guardarPedidos();
 
   // Enviar a Google Sheets
-  fetch("https://api.sheetbest.com/sheets/3e63ab90-8471-42e0-8f80-b4c67b419fcd", {
+  fetch("https://api.sheetbest.com/sheets/aa884681-ee43-48d7-8411-710416c171e5", {
     method: "POST",
     mode: "cors",
     headers: {
