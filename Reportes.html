@@ -22,7 +22,7 @@
     </ul>
   </nav>
 
-  <div class="card-ranking" id="card-ranking">
+ <!-- <div class="card-ranking" id="card-ranking">
     <h2>🏆 Top 3 Sacadores del Mes</h2>
     <ul id="lista-top-sacadores">
       <li>No hay datos aún.</li>
@@ -36,14 +36,14 @@
     <div id="contenedor-sacadores" class="accordion-content">
       <ul id="lista-sacadores" class="sacadores-lista"></ul>
     </div>
-  </div>
+  </div>-->
 
 
 <div id="conteo-pedidos" style="margin: 15px 0; font-weight: bold; font-size: 18px;">
   📦 Total de pedidos en este periodo: 0
 </div>
 
-  <label for="filtro-fecha">Filtrar por fecha: </label>
+ <!-- <label for="filtro-fecha">Filtrar por fecha: </label>
 <select id="filtro-fecha">
   <option value="ningun">Ninguna opción</option>
   <option value="hoy">Hoy</option>
@@ -51,7 +51,16 @@
   <option value="semana">Esta semana</option>
   <option value="mes">Este mes</option>
   <option value="todos">Todos</option>
-</select>
+</select>-->
+
+<div id="filtros">
+  <button onclick="filtrarPedidos('hoy')">Hoy</button>
+  <button onclick="filtrarPedidos('ayer')">Ayer</button>
+  <button onclick="filtrarPedidos('semana')">Esta Semana</button>
+  <button onclick="filtrarPedidos('mes')">Este Mes</button>
+  <button onclick="filtrarPedidos('mesPasado')">Mes Pasado</button> <!-- Nuevo botón -->
+  <button onclick="filtrarPedidos('todos')">Todos</button>
+</div>
 
   <table border="1" id="tabla-pedidos-filtrados">
     <thead>
