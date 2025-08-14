@@ -1,4 +1,5 @@
 const API_SHEET = "https://api.sheetbest.com/sheets/aa884681-ee43-48d7-8411-710416c171e5";
+const API_KEY = "eXq@UjnJ!9kYAdNROXAI7m!G5ehI2xQHYAW!mx8MewfKhVbVlZzf$t@WFCJxU3ms"; // Reemplaza con tu API Key de Sheet.best
 
 let resumenSacadores = []; 
 let pedidosFiltrados = []; 
@@ -267,18 +268,21 @@ function renderizarHistorial(ganadores) {
   `;
 }
 
-// ---------- Pedidos en progreso ----------
 function mostrarPedidosEnProgreso() {
-  fetch(API_SHEET)
+  fetch(API_SHEET, { headers: { "Authorization": `Bearer ${API_KEY}` } })
     .then(res => res.json())
     .then(data => {
       const pedidosProgreso = data.filter(p => {
+        const estatus = (p["Estatus"] || "").trim();
         const horaFin = (p["HoraFin "] || p["HoraFin"] || "").trim();
-        return !horaFin || isNaN(new Date(horaFin));
+        return estatus === "En Proceso... 📃" || !horaFin;
       });
 
       const lista = document.getElementById("lista-pedidos-progreso");
-      if (!lista) return;
+      if (!lista) {
+        console.error("❌ No se encontró el contenedor de pedidos en progreso");
+        return;
+      }
 
       if (pedidosProgreso.length === 0) {
         lista.innerHTML = `<li>No hay pedidos en progreso.</li>`;
@@ -287,19 +291,58 @@ function mostrarPedidosEnProgreso() {
 
       lista.innerHTML = pedidosProgreso.map(p => `
         <li style="padding:5px 0; border-bottom:1px solid #eee;">
-          <strong>${(p["Sacador "] || p["Sacador"] || "Sin nombre").trim()}</strong> 
-          - Productos: ${p["CantidadProductos "] || p["CantidadProductos"] || 0} 
-          - Hora Inicio: ${p["HoraInicio "] || p["HoraInicio"] || "-"}
+          <strong>${(p["Sacador"] || "Sin nombre").trim()}</strong> 
+          - Productos: ${p["CantidadReferencias"] || 0} 
+          - Hora Inicio: ${p["HoraInicio"] || "-"}
         </li>
       `).join("");
     })
     .catch(err => console.error("❌ Error al mostrar pedidos en progreso:", err));
 }
 
+
+function cargarPedidosEnProceso() {
+  fetch("https://api.sheetbest.com/sheets/7975b929-a2c3-498f-909e-fedae28cddc3")
+    .then(res => res.json())
+    .then(data => {
+      const tbody = document.querySelector("#tabla-pedidos tbody");
+      tbody.innerHTML = "";
+
+      // Filtrar solo los que están "En Proceso"
+      const enProceso = data.filter(p => 
+        String(p.Estatus).toLowerCase().includes("en proceso")
+      );
+
+      if (enProceso.length === 0) {
+        const fila = document.createElement("tr");
+        fila.innerHTML = `<td colspan="4" style="text-align:center;">No hay pedidos en proceso</td>`;
+        tbody.appendChild(fila);
+        return;
+      }
+
+      enProceso.forEach(pedido => {
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+          <td>${pedido.NumeroPedido || ""}</td>
+          <td>${pedido.Sacador || ""}</td>
+          <td>${pedido.CantidadReferencias || ""}</td>
+          <td>${pedido.HoraInicio || ""}</td>
+        `;
+        tbody.appendChild(fila);
+      });
+    })
+    .catch(err => console.error("❌ Error cargando pedidos en proceso:", err));
+}
+
+setInterval(cargarPedidosEnProceso, 10000);
+cargarPedidosEnProceso();
+
+
+
 // ---------- Auto-refresh cada 5 min ----------
 function iniciarAutoRefreshPedidos() {
   mostrarPedidosEnProgreso(); // Primera carga
-  setInterval(mostrarPedidosEnProgreso, 5*60*1000);
+  setInterval(mostrarPedidosEnProgreso, 5*60*1000); // Cada 5 minutos
 }
 
 // ---------- Inicialización ----------
@@ -307,6 +350,27 @@ window.onload = () => {
   filtrarPedidos("hoy"); 
   mostrarHistorialGanadores();
   obtenerTop3SacadoresRapidos();
-  filtrarPedidos('hoy');
   iniciarAutoRefreshPedidos(); // Panel de pedidos en progreso
 };
+
+
+
+
+
+let currentSlide = 0;
+const slides = document.querySelectorAll(".slideshow .slide");
+
+function showSlide(index) {
+  slides.forEach((slide, i) => {
+    slide.style.display = (i === index) ? "block" : "none";
+  });
+}
+
+function nextSlide() {
+  currentSlide = (currentSlide + 1) % slides.length;
+  showSlide(currentSlide);
+}
+
+// Iniciar
+showSlide(currentSlide);
+setInterval(nextSlide, 8000); // Cambia cada 8 segundos

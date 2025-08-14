@@ -1,5 +1,6 @@
 let taskList = document.getElementById("task-list");
 let timers = {}, pausedTimers = {};
+// URL del Google Sheet externo para seguimiento de pedidos
 
 const dayPausas = {
   1: "18:00:00", 2: "18:00:00", 3: "18:00:00", 4: "18:00:00",
@@ -70,45 +71,67 @@ function agregarPedido() {
     return;
   }
 
+  // Primero obtenemos los valores del formulario
   const codigo = document.getElementById("codigo").value.trim();
   const sacador = document.getElementById("sacador").value;
   const cantidad = parseInt(document.getElementById("cantidad").value.trim(), 10);
+  const now = new Date();
 
   if (!codigo || !sacador || isNaN(cantidad) || cantidad <= 0) {
     alert("Completa todos los campos correctamente.");
     return;
   }
 
-
-  const index = Date.now();
-  const now = new Date();
   const dia = now.getDay();
-
   if (dia === 0) {
     alert("Los domingos no se pueden iniciar pedidos.");
     return;
   }
 
+  // 🔹 Enviar a Google Sheet externo como EN PROCESO
+  fetch("https://api.sheetbest.com/sheets/7975b929-a2c3-498f-909e-fedae28cddc3", {
+  method: "POST",
+  mode: "cors",
+  headers: { 
+    "Content-Type": "application/json",
+    "Authorization": "Bearer eXq@UjnJ!9kYAdNROXAI7m!G5ehI2xQHYAW!mx8MewfKhVbVlZzf$t@WFCJxU3ms"  // agrega tu API Key de Sheet.best
+  },
+  body: JSON.stringify({
+    "NumeroPedido": codigo,
+    "Sacador": sacador,
+    "CantidadReferencias": cantidad,
+    "HoraInicio": formatDateTime(now),
+    "Estatus": "En Proceso... 📃"
+  })
+})
+.then(res => res.json())
+.then(data => console.log("✅ Pedido enviado a Sheet externo en proceso:", data))
+.catch(err => console.error("❌ Error al enviar en proceso:", err));
+
+
+  const index = Date.now();
+
+  // Crear la tarjeta del pedido en pantalla
   const task = document.createElement("div");
   task.className = "task";
-task.innerHTML = `
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h3 id="codigo-${index}">${codigo}</h3>
-    <button onclick="eliminar(${index})" style="background:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;">X</button>
-  </div>
-  <p id="sacador-${index}">${sacador}</p>
-  <p>Cantidad de productos: <span>${cantidad}</span></p>
-  <p>Inicio: <span id="start-${index}">${formatDateTime(now)}</span></p>
-  <p>Final: <span id="end-${index}">--/--/---- --:--:--</span></p>
-  <p>Tiempo: <span id="timer-${index}">00:00:00</span></p>
-  <p>Tiempo por producto: <span id="tpp-${index}">--</span></p>
-  <button onclick="pausar(${index})">Pausar</button>
-  <button onclick="reanudar(${index})">Reanudar</button>
-  <button onclick="finalizar(${index})">Finalizar</button>
-`;
-
+  task.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 id="codigo-${index}">${codigo}</h3>
+      <button onclick="eliminar(${index})" style="background:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;">X</button>
+    </div>
+    <p id="sacador-${index}">${sacador}</p>
+    <p>Cantidad de productos: <span>${cantidad}</span></p>
+    <p>Inicio: <span id="start-${index}">${formatDateTime(now)}</span></p>
+    <p>Final: <span id="end-${index}">--/--/---- --:--:--</span></p>
+    <p>Tiempo: <span id="timer-${index}">00:00:00</span></p>
+    <p>Tiempo por producto: <span id="tpp-${index}">--</span></p>
+    <button onclick="pausar(${index})">Pausar</button>
+    <button onclick="reanudar(${index})">Reanudar</button>
+    <button onclick="finalizar(${index})">Finalizar</button>
+  `;
   taskList.appendChild(task);
 
+  // Guardar datos para timers y pausas
   pausedTimers[index] = {
     index,
     codigo,
@@ -128,13 +151,13 @@ task.innerHTML = `
   programarPausas(index, sacador, now);
   guardarPedidos();
 
+  // Limpiar formulario y enfocar
   document.getElementById("codigo").value = "";
   document.getElementById("sacador").value = "";
   document.getElementById("cantidad").value = "";
-
-  // ✅ Enfocar el primer campo
   document.getElementById("codigo").focus();
 }
+
 
 function iniciarTimer(index) {
   timers[index] = setInterval(() => {
@@ -278,31 +301,44 @@ function finalizar(index) {
   data.tiempoPorProducto = tiempoFormateado;
   guardarPedidos();
 
-  // Enviar a Google Sheets
+  // 1️⃣ Enviar a Google Sheets principal (historial detallado)
   fetch("https://api.sheetbest.com/sheets/aa884681-ee43-48d7-8411-710416c171e5", {
     method: "POST",
     mode: "cors",
-    headers: {
-      "Content-Type": "application/json"
-    },
-  body: JSON.stringify({
-  "Codigo P": data.codigo,
-  "Sacador ": data.sacador,
-  "CantidadProductos ": data.cantidad,
-  "HoraInicio ": formatDateTime(new Date(data.startTimestamp)), // texto
-  "HoraFin ": formatDateTime(new Date(data.endTimestamp)), // texto
-  "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)), // HH:MM:SS
-  "TiempoPorProductoSegundos": tiempoPorProductoSegundos.toFixed(2), // número en segundos
-  "TiempoPorProducto": tiempoFormateado // HH:MM:SS
-})
-
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      "Codigo P": data.codigo,
+      "Sacador ": data.sacador,
+      "CantidadProductos ": data.cantidad,
+      "HoraInicio ": formatDateTime(new Date(data.startTimestamp)),
+      "HoraFin ": formatDateTime(new Date(data.endTimestamp)),
+      "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
+      "TiempoPorProductoSegundos": tiempoPorProductoSegundos.toFixed(2),
+      "TiempoPorProducto": tiempoFormateado
+    })
   })
-    .then(res => res.text())
-    .then(text => console.log("✅ Datos enviados a Sheets vía Sheet.best:", text))
-    .catch(err => console.error("❌ Error al enviar a Sheet.best:", err));
+  .then(res => res.text())
+  .then(text => console.log("✅ Datos enviados a Sheets historial:", text))
+  .catch(err => console.error("❌ Error al enviar historial:", err));
+
+  // 2️⃣ Actualizar estatus en Google Sheet externo (proceso -> finalizado)
+  fetch(`https://api.sheetbest.com/sheets/7975b929-a2c3-498f-909e-fedae28cddc3/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
+    method: "PATCH",
+    mode: "cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      "CantidadProductos": data.cantidad,
+      "HoraFin": formatDateTime(new Date(data.endTimestamp)),
+      "Estatus": "Finalizado"
+    })
+  })
+  .then(res => res.json())
+  .then(resp => console.log("✅ Pedido actualizado a FINALIZADO en Sheet externo:", resp))
+  .catch(err => console.error("❌ Error al actualizar Sheet externo:", err));
 
   delete timers[index];
 }
+
 
 
 

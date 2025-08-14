@@ -322,4 +322,47 @@ table#tabla-pedidos-filtrados tbody tr:hover {
   }
 }
 
+/* Tabla Pedidos en proceso */
+table#tabla-pedidos {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Encabezados */
+table#tabla-pedidos thead tr {
+  background-color: #2563eb; /* azul */
+  color: white;
+  text-align: left;
+  font-weight: 600;
+}
+
+table#tabla-pedidos th, 
+table#tabla-pedidos td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #e5e7eb; /* gris claro */
+}
+
+/* Filas alternas */
+table#tabla-pedidos tbody tr:nth-child(even) {
+  background-color: #f3f4f6; /* gris muy claro */
+}
+
+/* Hover fila */
+table#tabla-pedidos tbody tr:hover {
+  background-color: #dbeafe; /* azul claro */
+  cursor: default;
+}
+
+/* Responsive: tabla en scroll horizontal si cabe */
+@media (max-width: 600px) {
+  table#tabla-pedidos {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
 
