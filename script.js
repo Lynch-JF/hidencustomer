@@ -20,7 +20,10 @@ const INDIVIDUAL_PAUSES = {
   "Luis Morel": { pausa: "12:00:00", reanuda: "14:00:00" },
   "Brayan": { pausa: "12:00:00", reanuda: "14:00:00" },
   "Enrigue": { pausa: "12:00:00", reanuda: "14:00:00" },
-  "Cirilo": { pausa: "12:00:00", reanuda: "14:00:00" }
+  "Cirilo": { pausa: "12:00:00", reanuda: "14:00:00" },
+  "Luis Duran": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Luis Ruiz": { pausa:"12:00:00", reanuda: "14:00:00" },
+  "Wilkin Ortega": { pausa:"12:00:00", reanuda: "14:00:00" }
 };
 
 const HORAS_SALIDA = {
@@ -89,7 +92,7 @@ function agregarPedido() {
   }
 
   // 🔹 Enviar a Google Sheet externo como EN PROCESO
-  fetch("https://api.sheetbest.com/sheets/7975b929-a2c3-498f-909e-fedae28cddc3", {
+  fetch("https://api.sheetbest.com/sheets/30e3fbb6-d751-4bc7-bf1c-4012867c53c3", {
   method: "POST",
   mode: "cors",
   headers: { 
@@ -163,18 +166,22 @@ function iniciarTimer(index) {
   timers[index] = setInterval(() => {
     const data = pausedTimers[index];
     if (!data) return;
-    let elapsed = 0;
-    if (!data.paused) {
-      elapsed = Date.now() - data.startTimestamp - data.pausedDuration;
-    } else if (data.pausedAt) {
+
+    let elapsed;
+    if (data.paused) {
+      // Si está pausado, mostrar tiempo hasta la pausa actual
       elapsed = data.pausedAt - data.startTimestamp - data.pausedDuration;
+    } else {
+      elapsed = Date.now() - data.startTimestamp - data.pausedDuration;
     }
+
     const timerEl = document.getElementById(`timer-${index}`);
     if (timerEl) {
       timerEl.textContent = formatTime(Math.floor(elapsed / 1000));
     }
   }, 1000);
 }
+
 
 function programarPausas(index, sacador, now) {
   const dia = now.getDay();
@@ -302,7 +309,7 @@ function finalizar(index) {
   guardarPedidos();
 
   // 1️⃣ Enviar a Google Sheets principal (historial detallado)
-  fetch("https://api.sheetbest.com/sheets/aa884681-ee43-48d7-8411-710416c171e5", {
+  fetch("https://api.sheetbest.com/sheets/d766bed7-9735-49db-82da-201848842e3d", {
     method: "POST",
     mode: "cors",
     headers: { "Content-Type": "application/json" },
@@ -322,7 +329,7 @@ function finalizar(index) {
   .catch(err => console.error("❌ Error al enviar historial:", err));
 
   // 2️⃣ Actualizar estatus en Google Sheet externo (proceso -> finalizado)
-  fetch(`https://api.sheetbest.com/sheets/7975b929-a2c3-498f-909e-fedae28cddc3/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
+  fetch(`https://api.sheetbest.com/sheets/30e3fbb6-d751-4bc7-bf1c-4012867c53c3/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
     method: "PATCH",
     mode: "cors",
     headers: { "Content-Type": "application/json" },
