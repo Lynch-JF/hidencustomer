@@ -167,20 +167,20 @@ function iniciarTimer(index) {
     const data = pausedTimers[index];
     if (!data) return;
 
-    let elapsed;
+    let elapsed = 0;
     if (data.paused) {
-      // Si está pausado, mostrar tiempo hasta la pausa actual
+      // Si está pausado, mostrar el tiempo hasta que se pausó
       elapsed = data.pausedAt - data.startTimestamp - data.pausedDuration;
     } else {
+      // Si no está pausado, sumar tiempo desde inicio menos pausas
       elapsed = Date.now() - data.startTimestamp - data.pausedDuration;
     }
 
     const timerEl = document.getElementById(`timer-${index}`);
-    if (timerEl) {
-      timerEl.textContent = formatTime(Math.floor(elapsed / 1000));
-    }
+    if (timerEl) timerEl.textContent = formatTime(Math.floor(elapsed / 1000));
   }, 1000);
 }
+
 
 
 function programarPausas(index, sacador, now) {
@@ -214,26 +214,30 @@ function programarPausas(index, sacador, now) {
   }
 }
 
-function autoPause(index, tipo) {
-  if (!timers[index]) return;
-  const now = new Date();
-  pausedTimers[index].pausedAt = now.getTime();
-  pausedTimers[index].paused = true;
-  pausedTimers[index].tipoPausa = tipo;
-  guardarPedidos();
+function autoPause(index, tipo = "manual") {
+  const data = pausedTimers[index];
+  if (data && !data.paused) {
+    data.paused = true;
+    data.pausedAt = Date.now();
+    data.tipoPausa = tipo; // opcional: "manual" o "automática"
+    console.log(`⏸ Pedido ${data.codigo} pausado (${tipo})`);
+    guardarPedidos();
+  }
 }
 
 function autoReanudar(index) {
   const data = pausedTimers[index];
-  if (data.paused) {
-    const now = Date.now();
-    data.pausedDuration += now - data.pausedAt;
+  if (data && data.paused) {
+    const ahora = Date.now();
+    data.pausedDuration += ahora - data.pausedAt; // sumar tiempo en pausa
     data.paused = false;
     data.pausedAt = null;
     data.reanudado = true;
+    console.log(`▶ Pedido ${data.codigo} reanudado`);
     guardarPedidos();
   }
 }
+
 
 // Formatea fecha para enviar a Sheets (YYYY-MM-DD HH:MM:SS)
 function formatDateTime(date) {
@@ -253,8 +257,6 @@ function formatTime(totalSeconds) {
 
 function finalizar(index) {
   const now = new Date();
-
-  // Formato de fecha para mostrar
   const fechaCorta = formatDateTime(now);
   document.getElementById(`end-${index}`).textContent = fechaCorta;
 
@@ -272,18 +274,16 @@ function finalizar(index) {
   const porcentaje = Math.round((cantidadSacada / total) * 100);
 
   // Calcular duración real SIN tiempo en pausa
-  const duracionMs = now.getTime() - data.startTimestamp - data.pausedDuration;
-  const minutosTotales = duracionMs / 60000;
+  const duracionMs = now.getTime() - data.startTimestamp - (data.pausedDuration || 0);
 
   let tiempoFormateado = "00:00:00";
   let tiempoPorProductoSegundos = 0;
 
   if (cantidadSacada > 0) {
     tiempoPorProductoSegundos = duracionMs / 1000 / cantidadSacada; // en segundos
-    tiempoFormateado = formatTime(Math.floor(tiempoPorProductoSegundos)); // HH:MM:SS
+    tiempoFormateado = formatTime(Math.floor(tiempoPorProductoSegundos));
   }
 
-  // Mostrar en pantalla
   document.getElementById(`tpp-${index}`).textContent = tiempoFormateado;
 
   alert(`${data.sacador} sacó un ${porcentaje}% del pedido.\nTiempo por producto: ${tiempoFormateado}`);
@@ -308,7 +308,7 @@ function finalizar(index) {
   data.tiempoPorProducto = tiempoFormateado;
   guardarPedidos();
 
-  // 1️⃣ Enviar a Google Sheets principal (historial detallado)
+  // Enviar a Google Sheets principal (historial detallado)
   fetch("https://api.sheetbest.com/sheets/d766bed7-9735-49db-82da-201848842e3d", {
     method: "POST",
     mode: "cors",
@@ -328,7 +328,7 @@ function finalizar(index) {
   .then(text => console.log("✅ Datos enviados a Sheets historial:", text))
   .catch(err => console.error("❌ Error al enviar historial:", err));
 
-  // 2️⃣ Actualizar estatus en Google Sheet externo (proceso -> finalizado)
+  // Actualizar estatus en Google Sheet externo (proceso -> finalizado)
   fetch(`https://api.sheetbest.com/sheets/30e3fbb6-d751-4bc7-bf1c-4012867c53c3/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
     method: "PATCH",
     mode: "cors",
@@ -345,6 +345,8 @@ function finalizar(index) {
 
   delete timers[index];
 }
+
+
 
 
 
@@ -379,6 +381,16 @@ function addDays(date, d) {
 }
 
 function guardarPedidos() {
+  for (let i in pausedTimers) {
+    const data = pausedTimers[i];
+    if (!data.finalizado) {
+      if (data.paused) {
+        data.elapsed = data.pausedAt - data.startTimestamp - data.pausedDuration;
+      } else {
+        data.elapsed = Date.now() - data.startTimestamp - data.pausedDuration;
+      }
+    }
+  }
   localStorage.setItem("pedidos", JSON.stringify(pausedTimers));
 }
 
@@ -410,23 +422,30 @@ function reconstruirPedido(pedido) {
     </div>
     <p id="sacador-${index}">${pedido.sacador}</p>
     <p>Cantidad de productos: <span>${pedido.cantidad}</span></p>
-   <p>Inicio: <span id="start-${index}">${pedido.startTimeStr || formatearFecha(pedido.startTimestamp)}</span></p>
-   <p>Final: <span id="end-${index}">${pedido.endTimestamp ? formatearFecha(pedido.endTimestamp) : '--/-- --:--'}</span></p>
+    <p>Inicio: <span id="start-${index}">${pedido.startTimeStr || formatearFecha(pedido.startTimestamp)}</span></p>
+    <p>Final: <span id="end-${index}">${pedido.endTimestamp ? formatearFecha(pedido.endTimestamp) : '--/-- --:--'}</span></p>
     <p>Tiempo: <span id="timer-${index}">00:00:00</span></p>
     <p>Tiempo por producto: <span id="tpp-${index}">${pedido.tiempoPorProducto ? pedido.tiempoPorProducto + ' min' : '--'}</span></p>
     <button onclick="pausar(${index})">Pausar</button>
     <button onclick="reanudar(${index})">Reanudar</button>
     <button onclick="finalizar(${index})">Finalizar</button>
   `;
+
   if (pedido.finalizado) {
     task.style.backgroundColor = "#d4edda";
     task.style.borderColor = "#28a745";
   }
+
   taskList.appendChild(task);
   pausedTimers[index] = pedido;
 
   if (!pedido.finalizado) {
-    iniciarTimer(index);
+    if (pedido.paused) {
+      const elapsed = (pedido.elapsed || 0) / 1000;
+      document.getElementById(`timer-${index}`).textContent = formatTime(Math.floor(elapsed));
+    } else {
+      iniciarTimer(index);
+    }
     programarPausas(index, pedido.sacador, new Date());
   }
 }
