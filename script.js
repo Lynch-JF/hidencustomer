@@ -91,13 +91,11 @@ function agregarPedido() {
     return;
   }
 
-  // 🔹 Enviar a Google Sheet externo como EN PROCESO
-  fetch("https://api.sheetbest.com/sheets/30e3fbb6-d751-4bc7-bf1c-4012867c53c3", {
+// 🔹 Enviar a Google Sheet externo como EN PROCESO
+fetch("https://api.sheetbest.com/sheets/30e3fbb6-d751-4bc7-bf1c-4012867c53c3", {
   method: "POST",
-  mode: "cors",
   headers: { 
-    "Content-Type": "application/json",
-    "Authorization": "Bearer eXq@UjnJ!9kYAdNROXAI7m!G5ehI2xQHYAW!mx8MewfKhVbVlZzf$t@WFCJxU3ms"  // agrega tu API Key de Sheet.best
+    "Content-Type": "application/json"
   },
   body: JSON.stringify({
     "NumeroPedido": codigo,
@@ -110,7 +108,6 @@ function agregarPedido() {
 .then(res => res.json())
 .then(data => console.log("✅ Pedido enviado a Sheet externo en proceso:", data))
 .catch(err => console.error("❌ Error al enviar en proceso:", err));
-
 
   const index = Date.now();
 
