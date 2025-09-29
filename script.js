@@ -92,7 +92,7 @@ function agregarPedido() {
   }
 
 // 🔹 Enviar a Google Sheet externo como EN PROCESO
-fetch("https://api.sheetbest.com/sheets/08e16efc-8d19-4acf-9c45-c8ff9a2efdb5", {
+fetch("https://api.sheetbest.com/sheets/08e16efc-8d19-4acf-9c45-c8ff9a2efd", {
   method: "POST",
   headers: { 
     "Content-Type": "application/json"
@@ -306,21 +306,22 @@ function finalizar(index) {
   guardarPedidos();
 
   // Enviar a Google Sheets principal (historial detallado)
-  fetch("https://api.sheetbest.com/sheets/08e16efc-8d19-4acf-9c45-c8ff9a2efdb5", {
-    method: "POST",
-    mode: "cors",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      "Codigo P": data.codigo,
-      "Sacador ": data.sacador,
-      "CantidadProductos ": data.cantidad,
-      "HoraInicio ": formatDateTime(new Date(data.startTimestamp)),
-      "HoraFin ": formatDateTime(new Date(data.endTimestamp)),
-      "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
-      "TiempoPorProductoSegundos": tiempoPorProductoSegundos.toFixed(2),
-      "TiempoPorProducto": tiempoFormateado
-    })
+// ✅ Enviar a Google Sheets de pedidos (historial)
+fetch("https://api.sheetbest.com/sheets/08e16efc-8d19-4acf-9c45-c8ff9a2efdb5", {
+  method: "POST",
+  mode: "cors",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "Codigo P": data.codigo,
+    "Sacador": data.sacador,
+    "CantidadProductos": data.cantidad,
+    "HoraInicio": formatDateTime(new Date(data.startTimestamp)),
+    "HoraFin": formatDateTime(new Date(data.endTimestamp)),
+    "TiempoTotal": formatTime(Math.floor(duracionMs / 1000)),
+    "TiempoPorProductoSegundos": tiempoPorProductoSegundos.toFixed(2),
+    "TiempoPorProducto": tiempoFormateado
   })
+})
   .then(res => res.text())
   .then(text => console.log("✅ Datos enviados a Sheets historial:", text))
   .catch(err => console.error("❌ Error al enviar historial:", err));
