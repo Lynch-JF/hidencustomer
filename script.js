@@ -92,7 +92,7 @@ function agregarPedido() {
   }
 
 // 🔹 Enviar a Google Sheet externo como EN PROCESO
-fetch("https://api.sheetbest.com/sheets/08e16efc-8d19-4acf-9c45-c8ff9a2efd", {
+fetch("https://api.sheetbest.com/sheets/08e16efc-8d19-4acf-9c45-c8ff9a2efdb5", {
   method: "POST",
   headers: { 
     "Content-Type": "application/json"
