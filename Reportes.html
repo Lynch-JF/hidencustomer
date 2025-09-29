@@ -3,17 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lista de Tareas</title>
+  <title>Reporte de Pedidos</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Estilos para el slideshow */
+    .slideshow {
+      width: 100%;
+      height: auto;
+      position: relative;
+      margin-top: 20px;
+    }
+    .slide {
+      display: none;
+    }
+    .slide.active {
+      display: block;
+      animation: fadeIn 0.8s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from {opacity: 0;}
+      to {opacity: 1;}
+    }
+  </style>
 </head>
 
 <body>
   <nav class="navbar">
     <div class="navbar-logo">
       <img src="LOGO-Photoroom.png" alt="Logo" />
-      <span>Gestión de Pedidos</span>
+      <span>Reporte de Pedidos</span>
     </div>
     <ul class="navbar-links">
       <li><a href="index.html">📦 Pedidos</a></li>
@@ -22,110 +43,143 @@
     </ul>
   </nav>
 
-  <div class="card-ranking" id="card-ranking">
-    <h2>🏆 Top 3 Sacadores del Mes</h2>
-    <ul id="lista-top-sacadores">
-      <li>No hay datos aún.</li>
-    </ul>
+  <div id="conteo-pedidos" style="margin: 15px 0; font-weight: bold; font-size: 18px;">
+    📦 Total de pedidos en este periodo: 0
   </div>
 
-  <div class="card-historial" id="card-sacadores">
-    <button class="accordion-btn" onclick="toggleListaSacadores()">
-      📋 Sacadores del Mes (<span id="mes-actual"></span>) ⬇️
-    </button>
-    <div id="contenedor-sacadores" class="accordion-content">
-      <ul id="lista-sacadores" class="sacadores-lista"></ul>
+  <!-- Slideshow con 3 secciones -->
+  <div class="slideshow">
+    <!-- Slide 1: Tabla filtrada -->
+    <div class="slide" id="slide-tabla-filtros">
+      <div id="filtros">
+<button onclick="filtrarPedidosHoy()">Filtrar Hoy</button>
+        <button onclick="filtrarPedidos('ayer')">Ayer</button>
+        <button onclick="filtrarPedidos('semana')">Esta Semana</button>
+        <button onclick="filtrarPedidos('mes')">Este Mes</button>
+        <button onclick="filtrarPedidos('mesPasado')">Mes Pasado</button>
+        <button onclick="filtrarPedidos('todos')">Todos</button>
+      </div>
+
+      <table border="1" id="tabla-pedidos-filtrados">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Sacador</th>
+            <th>Total Productos</th>
+            <th>Total Pedidos</th>
+            <th>Promedio Tiempo (min)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Slide 2: Pedidos en proceso -->
+    <div class="slide" id="slide-pedidos-proceso">
+      <div id="panel-pedidos" style="border:1px solid #ccc;padding:10px;">
+        <h3>📦 Pedidos en proceso</h3>
+        <table id="tabla-pedidos" border="1" cellpadding="5">
+          <thead>
+            <tr>
+              <th>Número Pedido</th>
+              <th>Sacador</th>
+              <th>Cantidad de Referencias</th>
+              <th>Hora Inicio</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Slide 3: Gráfico -->
+    <div class="slide" id="slide-grafico">
+      <canvas id="grafica-tiempo" width="400" height="200"></canvas>
     </div>
   </div>
 
-
-<div id="conteo-pedidos" style="margin: 15px 0; font-weight: bold; font-size: 18px;">
-  📦 Total de pedidos en este periodo: 0
-</div>
-
-  <label for="filtro-fecha">Filtrar por fecha: </label>
-<select id="filtro-fecha">
-  <option value="ningun">Ninguna opción</option>
-  <option value="hoy">Hoy</option>
-  <option value="ayer">Ayer</option>
-  <option value="semana">Esta semana</option>
-  <option value="mes">Este mes</option>
-  <option value="todos">Todos</option>
-</select>
-
-  <table border="1" id="tabla-pedidos-filtrados">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Sacador</th>
-        <th>Total Productos</th>
-        <th>Total Pedidos</th>
-        <th>Promedio Tiempo (min)</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-<div class="mensaje" id="mensaje"></div>
-
-  <div id="task-list"></div>
-
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    mostrarHistorialGanadores();
-    obtenerTop3SacadoresRapidos();
-    mostrarSacadoresDelMes();
-  });
-</script>
-
-
+  <div class="mensaje" id="mensaje"></div>
 
   <!-- Tu archivo JS -->
   <script src="JS2.js"></script>
 
-  <!-- Script para exportar Excel -->
   <script>
-    document.getElementById("btn-exportar").addEventListener("click", exportarSacadoresAExcel);
+    // Auto reset cada 5 minutos
+    setInterval(() => { location.reload(); }, 300000);
 
+    // Variables para slideshow
+    let currentSlide = 0;
+    const slides = document.querySelectorAll(".slideshow .slide");
+
+    function showSlide(index) {
+      slides.forEach((slide, i) => {
+        slide.classList.toggle("active", i === index);
+      });
+
+      // Si es el slide de pedidos en proceso, refrescar datos
+      if (slides[index].id === "slide-pedidos-proceso") {
+        mostrarPedidosEnProgreso();
+      }
+    }
+
+    function nextSlide() {
+      currentSlide = (currentSlide + 1) % slides.length;
+      showSlide(currentSlide);
+    }
+
+    // Función para mostrar pedidos en progreso
+    function mostrarPedidosEnProgreso() {
+      fetch(API_SHEET)
+        .then(res => res.json())
+        .then(data => {
+          const pedidosProgreso = data.filter(p => {
+            const estatus = (p["Estatus"] || "").trim();
+            return estatus === "En Proceso... 📃";
+          });
+
+          const tbody = document.querySelector("#tabla-pedidos tbody");
+          if (!tbody) return;
+
+          if (pedidosProgreso.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4">No hay pedidos en progreso.</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = pedidosProgreso.map((p, i) => `
+            <tr>
+              <td>${p["NúmeroPedido"] || "-"}</td>
+              <td>${p["Sacador"] || "Sin nombre"}</td>
+              <td>${p["CantidadReferencias"] || 0}</td>
+              <td>${p["HoraInicio"] || "-"}</td>
+            </tr>
+          `).join("");
+        })
+        .catch(err => console.error("❌ Error al mostrar pedidos en progreso:", err));
+    }
+
+    // Exportar a Excel
+    document.getElementById("btn-exportar").addEventListener("click", exportarSacadoresAExcel);
     function exportarSacadoresAExcel() {
-      if (sacadoresArrayGlobal.length === 0) {
+      if (!resumenSacadores || resumenSacadores.length === 0) {
         alert("No hay datos para exportar.");
         return;
       }
-
-      const worksheet = XLSX.utils.json_to_sheet(sacadoresArrayGlobal);
+      const worksheet = XLSX.utils.json_to_sheet(resumenSacadores);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Sacadores del Mes");
-
       const fecha = new Date();
       const nombreArchivo = `Sacadores_${fecha.getFullYear()}_${fecha.getMonth() + 1}.xlsx`;
-
       XLSX.writeFile(workbook, nombreArchivo);
     }
+
+    // Inicio
+    document.addEventListener("DOMContentLoaded", () => {
+      filtrarPedidos('mes'); // Slide 1 por defecto
+      mostrarHistorialGanadores();
+      obtenerTop3SacadoresRapidos();
+      showSlide(currentSlide);
+      setInterval(nextSlide, 8000); // Cambia cada 8s
+    });
   </script>
-
-<script>
-  const usuariosAutorizados = [
-    { nombre: "JHolgui", clave: "JH1234" },
-    { nombre: "JJimenez", clave: "admin2024" },
-    { nombre: "CRosario", clave: "CR1234" },
-    { nombre: "1", clave: "1" }
-  ];
-
-  document.addEventListener("DOMContentLoaded", () => {
-    const nombre = prompt("Ingrese su nombre:");
-    const clave = prompt("Ingrese su clave:");
-
-    const autorizado = usuariosAutorizados.find(
-      user => user.nombre.toLowerCase() === nombre?.toLowerCase() && user.clave === clave
-    );
-
-    if (!autorizado) {
-      alert("Acceso denegado. Serás redirigido.");
-      window.location.href = "index.html"; // 🔁 Redirección a pedidos
-    }
-  });
-</script>
-
-
 </body>
 </html>
