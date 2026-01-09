@@ -9,13 +9,13 @@ const dayPausas = {
 
 const INDIVIDUAL_PAUSES = {
   "Omar": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Angelo": { pausa: "13:00:00", reanuda: "14:00:00"},
+  "José": { pausa: "13:00:00", reanuda: "14:00:00"},
   "Jairo": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Nea": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Brandy": { pausa: "13:00:00", reanuda: "14:00:00"},
+  "Ismael": { pausa: "13:00:00", reanuda: "14:00:00"},
+  "Fernando": { pausa: "13:00:00", reanuda: "14:00:00"},
   "Mello": { pausa: "13:00:00", reanuda: "14:00:00"},
   "Luis David": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Rolfi": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Yustin": { pausa: "13:00:00", reanuda: "14:00:00" },
   "Luis Eduardo": { pausa: "13:00:00", reanuda: "14:00:00" },
   "Luis Morel": { pausa: "13:00:00", reanuda: "14:00:00" },
   "Brayan": { pausa: "13:00:00", reanuda: "14:00:00" },
