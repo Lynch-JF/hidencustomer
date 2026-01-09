@@ -320,7 +320,7 @@ fetch("https://api.sheetbest.com/sheets/b728e7de-89eb-4872-9169-f1bdbd4a54dd", {
     "TiempoPorProductoSegundos": Number(tiempoPorProductoSegundos.toFixed(2)),
     "TiempoPorProducto": tiempoFormateado
   })
-});
+})
 
   .then(res => res.text())
   .then(text => console.log("✅ Datos enviados a Sheets historial:", text))
