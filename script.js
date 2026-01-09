@@ -307,7 +307,7 @@ function finalizar(index) {
 
   // Enviar a Google Sheets principal (historial detallado)
 // ✅ Enviar a Google Sheets de pedidos (historial)
-fetch("https://api.sheetbest.com/sheets/08e16efc-8d19-4acf-9c45-c8ff9a2efdb5", {
+fetch("https://api.sheetbest.com/sheets/b728e7de-89eb-4872-9169-f1bdbd4a54dd", {
   method: "POST",
   mode: "cors",
   headers: { "Content-Type": "application/json" },
