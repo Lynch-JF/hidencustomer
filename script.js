@@ -28,11 +28,11 @@ const INDIVIDUAL_PAUSES = {
 
 const HORAS_SALIDA = {
   "Omar": "18:00:00",
-  "Angelo": "18:00:00",
+  "José": "18:00:00",
   "Jairo": "18:00:00",
-  "Nea": "18:00:00",
-  "Brandy": "18:00:00",
-  "Mello": "18:00:00"
+  "Ismael": "18:00:00",
+  "Mello": "18:00:00",
+  "Fernando": "18:00:00"
 };
 
 window.onload = () => {
@@ -304,6 +304,12 @@ function finalizar(index) {
   data.endTimestamp = now.getTime();
   data.tiempoPorProducto = tiempoFormateado;
   guardarPedidos();
+
+  console.log("DEBUG ENVIO SHEET:", {
+  codigo: data.codigo,
+  sacador: data.sacador,
+  cantidad: data.cantidad
+});
 
   // Enviar a Google Sheets principal (historial detallado)
 // ✅ Enviar a Google Sheets de pedidos (historial)
