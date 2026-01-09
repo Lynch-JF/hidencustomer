@@ -285,6 +285,33 @@ function finalizar(index) {
 
   alert(`${data.sacador} sacó un ${porcentaje}% del pedido.\nTiempo por producto: ${tiempoFormateado}`);
 
+  // 🧾 PEDIR BULTOS
+const bultos = parseInt(
+  prompt("¿Cuántos bultos se realizaron en este pedido?"),
+  10
+);
+
+if (isNaN(bultos) || bultos < 0) {
+  alert("Cantidad de bultos inválida.");
+  return;
+}
+
+// 💰 PEDIR MONTO TOTAL
+const montoTotal = parseFloat(
+  prompt("¿Cuál es el monto total de este pedido? (solo números)")
+);
+
+if (isNaN(montoTotal) || montoTotal < 0) {
+  alert("Monto inválido.");
+  return;
+}
+
+// 📢 Notificación final
+alert(
+  `📦 Bultos realizados: ${bultos}\n💰 Monto total del pedido: RD$ ${montoTotal.toFixed(2)}`
+);
+
+
   const task = document.getElementById(`codigo-${index}`).closest(".task");
   task.style.backgroundColor = "#d4edda";
   task.style.borderColor = "#28a745";
@@ -319,7 +346,11 @@ fetch("https://api.sheetbest.com/sheets/091e87e7-cc99-43fc-9b0c-ac8503b0dd3e", {
     "HoraFin ": formatDateTime(new Date(data.endTimestamp)),
     "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
     "TiempoPorProductoSegundos": tiempoPorProductoSegundos.toFixed(2),
-    "TiempoPorProducto": tiempoFormateado
+    "TiempoPorProducto": tiempoFormateado, 
+    
+  // 🆕 NUEVOS CAMPOS
+  "Bultos": bultos,
+  "MontoFinal": montoTotal.toFixed(2)
   })
 })
   .then(res => res.text())
