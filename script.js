@@ -307,17 +307,17 @@ function finalizar(index) {
 
   // Enviar a Google Sheets principal (historial detallado)
 // ✅ Enviar a Google Sheets de pedidos (historial)
-fetch("https://api.sheetbest.com/sheets/b728e7de-89eb-4872-9169-f1bdbd4a54dd", {
+fetch("https://api.sheetbest.com/sheets/091e87e7-cc99-43fc-9b0c-ac8503b0dd3e", {
   method: "POST",
   mode: "cors",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     "Codigo P": data.codigo,
     "Sacador": data.sacador,
-    "CantidadProductos": data.cantidad,
-    "HoraInicio": formatDateTime(new Date(data.startTimestamp)),
-    "HoraFin": formatDateTime(new Date(data.endTimestamp)),
-    "TiempoTotal": formatTime(Math.floor(duracionMs / 1000)),
+    "CantidadProductos ": data.cantidad,
+    "HoraInicio ": formatDateTime(new Date(data.startTimestamp)),
+    "HoraFin ": formatDateTime(new Date(data.endTimestamp)),
+    "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
     "TiempoPorProductoSegundos": tiempoPorProductoSegundos.toFixed(2),
     "TiempoPorProducto": tiempoFormateado
   })
