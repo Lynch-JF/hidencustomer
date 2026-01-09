@@ -8,31 +8,31 @@ const dayPausas = {
 };
 
 const INDIVIDUAL_PAUSES = {
-  "Omar": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "José": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Jairo": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Ismael": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Fernando": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Mello": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Luis David": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Yustin": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Luis Eduardo": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Luis Morel": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Brayan": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Enrigue": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Cirilo": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Luis Duran": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Luis Ruiz": { pausa:"13:00:00", reanuda: "14:00:00" },
-  "Wilkin Ortega": { pausa:"13:00:00", reanuda: "14:00:00" }
+  "Omar Marmolejos Fajardo": { pausa: "13:00:00", reanuda: "14:00:00"},
+  "José Rafael Suriel": { pausa: "13:00:00", reanuda: "14:00:00"},
+  "Jairo Fernandez Salcedo": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Ismael Augusto Veras Lasuse": { pausa: "13:00:00", reanuda: "14:00:00"},
+  "Fernando Antonio Burgos Cabrera": { pausa: "13:00:00", reanuda: "14:00:00"},
+  "Juan De Jesús Peña Pérez": { pausa: "13:00:00", reanuda: "14:00:00"},
+  "Luis David Nuñez Santos": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Yustin Alexander Mendez": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Luis Eduardo Reyes": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Omelbe Gomez Valdez": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Bryhan Santo Cordero": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Enrique Nuñez Brito": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Cirilo Reynoso Acevedo": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Yan Carlos Cruz Paulino": { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Luis Alberto Ruiz Marmolejos": { pausa:"13:00:00", reanuda: "14:00:00" },
+  "Wilkin Ortega Diaz": { pausa:"13:00:00", reanuda: "14:00:00" }
 };
 
 const HORAS_SALIDA = {
-  "Omar": "18:00:00",
-  "José": "18:00:00",
-  "Jairo": "18:00:00",
-  "Ismael": "18:00:00",
-  "Mello": "18:00:00",
-  "Fernando": "18:00:00"
+  "Omar Marmolejos Fajardo": "18:00:00",
+  "José Rafael Suriel": "18:00:00",
+  "Jairo Fernandez Salcedo": "18:00:00",
+  "Ismael Augusto Veras Lasuse": "18:00:00",
+  "Juan De Jesús Peña Pérez": "18:00:00",
+  "Fernando Antonio Burgos Cabrera": "18:00:00"
 };
 
 window.onload = () => {
