@@ -186,28 +186,43 @@ function programarPausas(index, sacador, now) {
   if (INDIVIDUAL_PAUSES[sacador]) {
     const p1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
     const r1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].reanuda);
-    setTimeout(() => autoPause(index, "individual"), p1 - now);
-    setTimeout(() => autoReanudar(index), r1 - now);
+
+    if (p1 > now) {
+      setTimeout(() => autoPause(index, "individual"), p1 - now);
+    }
+
+    if (r1 > now) {
+      setTimeout(() => autoReanudar(index), r1 - now);
+    }
   }
 
   if (dayPausas[dia]) {
     const pausaGeneral = getFutureTime(now, dayPausas[dia]);
-    setTimeout(() => autoPause(index, "general"), pausaGeneral - now);
+
+    if (pausaGeneral > now) {
+      setTimeout(() => autoPause(index, "general"), pausaGeneral - now);
+    }
 
     let reanuda;
     if (dia === 6) {
-      // Sábado: reanudar el lunes a las 08:00 AM
+      // Sábado → lunes 8:00 AM
       reanuda = getFutureTime(addDays(now, 2), "08:00:00");
-    } else { 
-      // Otros días: reanudar al día siguiente
+    } else {
+      // Otros días → mañana 8:00 AM
       reanuda = getFutureTime(addDays(now, 1), "08:00:00");
     }
-    setTimeout(() => autoReanudar(index), reanuda - now);
+
+    if (reanuda > now) {
+      setTimeout(() => autoReanudar(index), reanuda - now);
+    }
   }
 
   if (HORAS_SALIDA[sacador]) {
     const salida = getFutureTime(now, HORAS_SALIDA[sacador]);
-    setTimeout(() => autoPause(index, "salida anticipada"), salida - now);
+
+    if (salida > now) {
+      setTimeout(() => autoPause(index, "salida anticipada"), salida - now);
+    }
   }
 }
 
