@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -11,7 +10,7 @@
 
 </head>
 <body>
-
+<div class="main-container">
  <nav class="navbar">
   <div class="navbar-logo">
     <img src="LOGO-Photoroom.png" alt="Logo" />
@@ -27,8 +26,8 @@
 
   <h1>Lista de Pedidos</h1> 
 
- <div>
-<input type="text" id="codigo" placeholder="Código del pedido" />
+<div class="form-card">
+  <input type="text" id="codigo" placeholder="Código del pedido" />
     <select class="select" id="sacador">
       <option value="">Selecciona el sacador</option>
       <option value="Omar Marmolejos Fajardo">Omar Marmolejos Fajardo</option>
@@ -51,14 +50,16 @@
 <input type="number" id="cantidad" placeholder="Cantidad total de productos" />
     <button class="add" type="button" onclick="agregarPedido()">Agregar Pedido</button>
   </div>
-  <button class="pause" style="margin-top: -20%;"  onclick="pausarTodos()">Pausar Todos</button>
+ <div class="top-actions">
+  <button class="pause" onclick="pausarTodos()">Pausar Todos</button>
   <button class="star" onclick="reanudarTodos()">Reanudar Todos</button>
-  <button onclick="eliminarTodos()" style="background:#dc3545;color:white;padding:10px;border:none;border-radius:5px;margin-bottom:10px;">
-  Eliminar todos los pedidos
-</button>
+  <button onclick="eliminarTodos()" style="background:#dc3545;color:white;">
+    Eliminar todos los pedidos
+  </button>
+</div>
   <div id="task-list"></div>
   <script src="script.js"></script>
-
+</div>
   <script>
   document.addEventListener("DOMContentLoaded", () => {
     const inputs = ["codigo", "sacador", "cantidad"];
