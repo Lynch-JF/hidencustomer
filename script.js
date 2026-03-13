@@ -349,7 +349,7 @@ alert(
 
   // Enviar a Google Sheets principal (historial detallado)
 // ✅ Enviar a Google Sheets de pedidos (historial)
-fetch("https://api.sheetbest.com/sheets/3bc48b57-accf-472a-94dc-84d31122bc45", {
+fetch("https://api.sheetbest.com/sheets/bc086853-9c05-4a57-aad5-8c58bcf93f3a", {
   method: "POST",
   mode: "cors",
   headers: { "Content-Type": "application/json" },
