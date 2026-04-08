@@ -9,7 +9,6 @@ const dayPausas = {
 
 const INDIVIDUAL_PAUSES = {
   "Omar Marmolejos Fajardo": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "José Rafael Suriel": { pausa: "13:00:00", reanuda: "14:00:00"},
   "Jairo Fernandez Salcedo": { pausa: "13:00:00", reanuda: "14:00:00" },
   "Ismael Augusto Veras Lasuse": { pausa: "13:00:00", reanuda: "14:00:00"},
   "Fernando Antonio Burgos Cabrera": { pausa: "13:00:00", reanuda: "14:00:00"},
@@ -22,13 +21,11 @@ const INDIVIDUAL_PAUSES = {
   "Enrique Nuñez Brito": { pausa: "13:00:00", reanuda: "14:00:00" },
   "Cirilo Reynoso Acevedo": { pausa: "13:00:00", reanuda: "14:00:00" },
   "Yan Carlos Cruz Paulino": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Luis Alberto Ruiz Marmolejos": { pausa:"13:00:00", reanuda: "14:00:00" },
   "Wilkin Ortega Diaz": { pausa:"13:00:00", reanuda: "14:00:00" }
 };
 
 const HORAS_SALIDA = {
   "Omar Marmolejos Fajardo": "18:00:00",
-  "José Rafael Suriel": "18:00:00",
   "Jairo Fernandez Salcedo": "18:00:00",
   "Ismael Augusto Veras Lasuse": "18:00:00",
   "Juan De Jesús Peña Pérez": "18:00:00",
@@ -349,7 +346,7 @@ alert(
 
   // Enviar a Google Sheets principal (historial detallado)
 // ✅ Enviar a Google Sheets de pedidos (historial)
-fetch("https://api.sheetbest.com/sheets/bc086853-9c05-4a57-aad5-8c58bcf93f3a", {
+fetch("https://api.sheetbest.com/sheets/33bca60b-ff65-49d8-a607-67580212815b", {
   method: "POST",
   mode: "cors",
   headers: { "Content-Type": "application/json" },
