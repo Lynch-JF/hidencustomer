@@ -370,7 +370,7 @@ fetch("https://api.sheetbest.com/sheets/33bca60b-ff65-49d8-a607-67580212815b", {
   .catch(err => console.error("❌ Error al enviar historial:", err));
 
   // Actualizar estatus en Google Sheet externo (proceso -> finalizado)
-  fetch(`https://api.sheetbest.com/sheets/30e3fbb6-d751-4bc7-bf1c-4012867c53c3/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
+  fetch(`https://api.sheetbest.com/sheets/33bca60b-ff65-49d8-a607-67580212815b/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
     method: "PATCH",
     mode: "cors",
     headers: { "Content-Type": "application/json" },
