@@ -1,521 +1,802 @@
-let taskList = document.getElementById("task-list");
-let timers = {}, pausedTimers = {};
-// URL del Google Sheet externo para seguimiento de pedidos
+// ============================================================
+//  CONFIGURACIÓN
+// ============================================================
+const API_HOJA_PROCESO   = "https://api.sheetbest.com/sheets/7793c015-368c-456b-a175-0fc6cc94821f";
+const API_HOJA_HISTORIAL = "https://api.sheetbest.com/sheets/1b46c8e9-a786-474f-bc8d-f4f61f181b03";
 
+let taskList     = document.getElementById("task-list");
+let timers       = {};
+let pausedTimers = {};
+
+// ============================================================
+//  HORARIOS
+// ============================================================
 const dayPausas = {
-  1: "18:00:00", 2: "18:00:00", 3: "18:00:00", 4: "18:00:00",
-  5: "17:00:00", 6: "12:00:00"
+  1: "18:00:00", 2: "18:00:00", 3: "18:00:00",
+  4: "18:00:00", 5: "17:00:00", 6: "12:00:00"
 };
 
 const INDIVIDUAL_PAUSES = {
-  "Omar Marmolejos Fajardo": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Jairo Fernandez Salcedo": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Ismael Augusto Veras Lasuse": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Fernando Antonio Burgos Cabrera": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Juan De Jesús Peña Pérez": { pausa: "13:00:00", reanuda: "14:00:00"},
-  "Luis David Nuñez Santos": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Yustin Alexander Mendez": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Luis Eduardo Reyes": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Omelbe Gomez Valdez": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Bryhan Santo Cordero": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Enrique Nuñez Brito": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Cirilo Reynoso Acevedo": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Yan Carlos Cruz Paulino": { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Wilkin Ortega Diaz": { pausa:"13:00:00", reanuda: "14:00:00" }
+  "Omar Marmolejos Fajardo":          { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Jairo Fernandez Salcedo":          { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Ismael Augusto Veras Lasuse":      { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Fernando Antonio Burgos Cabrera":  { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Juan De Jesús Peña Pérez":         { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Luis David Nuñez Santos":          { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Yustin Alexander Mendez":          { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Luis Eduardo Reyes":               { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Omelbe Gomez Valdez":              { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Bryhan Santo Cordero":             { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Enrique Nuñez Brito":              { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Cirilo Reynoso Acevedo":           { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Yan Carlos Cruz Paulino":          { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Wilkin Ortega Diaz":               { pausa: "13:00:00", reanuda: "14:00:00" }
 };
 
 const HORAS_SALIDA = {
-  "Omar Marmolejos Fajardo": "18:00:00",
-  "Jairo Fernandez Salcedo": "18:00:00",
-  "Ismael Augusto Veras Lasuse": "18:00:00",
-  "Juan De Jesús Peña Pérez": "18:00:00",
+  "Omar Marmolejos Fajardo":         "18:00:00",
+  "Jairo Fernandez Salcedo":         "18:00:00",
+  "Ismael Augusto Veras Lasuse":     "18:00:00",
+  "Juan De Jesús Peña Pérez":        "18:00:00",
   "Fernando Antonio Burgos Cabrera": "18:00:00"
 };
 
-window.onload = () => {
-    verificarMesActual(); 
-  const saved = JSON.parse(localStorage.getItem("pedidos")) || {};
-  Object.values(saved).forEach(pedido => reconstruirPedido(pedido));
-};
-
-function pad(n) {
-  return n.toString().padStart(2, '0');
-}
+// ============================================================
+//  UTILIDADES DE FORMATO
+// ============================================================
+function pad(n) { return String(n).padStart(2, "0"); }
 
 function formatDateTime(date) {
   if (!(date instanceof Date)) date = new Date(date);
-  const d = pad(date.getDate());
-  const m = pad(date.getMonth() + 1);
-  const y = date.getFullYear();
-  const hh = pad(date.getHours());
-  const mm = pad(date.getMinutes());
-  const ss = pad(date.getSeconds());
-  return `${d}/${m}/${y} ${hh}:${mm}:${ss}`;
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ` +
+         `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 function formatTime(totalSeconds) {
-  totalSeconds = Number(totalSeconds) || 0;
+  totalSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = Math.floor(totalSeconds % 60);
+  const s = totalSeconds % 60;
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-// Garantizar que esté disponible globalmente
-window.formatDateTime = formatDateTime;
-window.formatTime = formatTime;
-
-
-function agregarPedido() {
-  if (!confirm("¿Seguro que deseas agregar otro pedido?")) {
-    return;
-  }
-
-  // Primero obtenemos los valores del formulario
-  const codigo = document.getElementById("codigo").value.trim();
-  const sacador = document.getElementById("sacador").value;
-  const cantidad = parseInt(document.getElementById("cantidad").value.trim(), 10);
-  const now = new Date();
-
-  if (!codigo || !sacador || isNaN(cantidad) || cantidad <= 0) {
-    alert("Completa todos los campos correctamente.");
-    return;
-  }
-
-  const dia = now.getDay();
-  if (dia === 0) {
-    alert("Los domingos no se pueden iniciar pedidos.");
-    return;
-  }
-
-// 🔹 Enviar a Google Sheet externo como EN PROCESO
-fetch("https://api.sheetbest.com/sheets/7793c015-368c-456b-a175-0fc6cc94821f", {
-  method: "POST",
-  headers: { 
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    "NumeroPedido": codigo,
-    "Sacador": sacador,
-    "CantidadReferencias": cantidad,
-    "HoraInicio": formatDateTime(now),
-    "Estatus": "En Proceso... 📃"
-  })
-})
-.then(res => res.json())
-.then(data => console.log("✅ Pedido enviado a Sheet externo en proceso:", data))
-.catch(err => console.error("❌ Error al enviar en proceso:", err));
-
-  const index = Date.now();
-
-  // Crear la tarjeta del pedido en pantalla
-  const task = document.createElement("div");
-  task.className = "task";
-  task.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 id="codigo-${index}">${codigo}</h3>
-      <button onclick="eliminar(${index})" style="background:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;">X</button>
-    </div>
-    <p id="sacador-${index}">${sacador}</p>
-    <p>Cantidad de productos: <span>${cantidad}</span></p>
-    <p>Inicio: <span id="start-${index}">${formatDateTime(now)}</span></p>
-    <p>Final: <span id="end-${index}">--/--/---- --:--:--</span></p>
-    <p>Tiempo: <span id="timer-${index}">00:00:00</span></p>
-    <p>Tiempo por producto: <span id="tpp-${index}">--</span></p>
-    <button onclick="pausar(${index})">Pausar</button>
-    <button onclick="reanudar(${index})">Reanudar</button>
-    <button onclick="finalizar(${index})">Finalizar</button>
-  `;
-  taskList.appendChild(task);
-
-  // Guardar datos para timers y pausas
-  pausedTimers[index] = {
-    index,
-    codigo,
-    sacador,
-    cantidad,
-    startTimestamp: now.getTime(),
-    pausedDuration: 0,
-    pausedAt: null,
-    paused: false,
-    tipoPausa: null,
-    reanudado: false,
-    finalizado: false,
-    tiempoPorProducto: null
-  };
-
-  iniciarTimer(index);
-  programarPausas(index, sacador, now);
-  guardarPedidos();
-
-  // Limpiar formulario y enfocar
-  document.getElementById("codigo").value = "";
-  document.getElementById("sacador").value = "";
-  document.getElementById("cantidad").value = "";
-  document.getElementById("codigo").focus();
+function formatearFecha(timestamp) {
+  const d = new Date(timestamp);
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ` +
+         `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+window.formatDateTime = formatDateTime;
+window.formatTime     = formatTime;
 
+// ============================================================
+//  CÁLCULO DE ELAPSED
+// ============================================================
+function calcularElapsedMs(data, nowMs) {
+  if (data.finalizado) return data.elapsedMsFinal || 0;
+  let base = data.paused
+    ? (data.pausedAt || nowMs) - data.startTimestamp
+    : nowMs - data.startTimestamp;
+  return Math.max(0, base - (data.pausedDuration || 0));
+}
+
+// ============================================================
+//  TIMER
+// ============================================================
 function iniciarTimer(index) {
+  if (timers[index]) clearInterval(timers[index]);
   timers[index] = setInterval(() => {
     const data = pausedTimers[index];
-    if (!data) return;
-
-    let elapsed = 0;
-    if (data.paused) {
-      // Si está pausado, mostrar el tiempo hasta que se pausó
-      elapsed = data.pausedAt - data.startTimestamp - data.pausedDuration;
-    } else {
-      // Si no está pausado, sumar tiempo desde inicio menos pausas
-      elapsed = Date.now() - data.startTimestamp - data.pausedDuration;
-    }
-
-    const timerEl = document.getElementById(`timer-${index}`);
-    if (timerEl) timerEl.textContent = formatTime(Math.floor(elapsed / 1000));
-  }, 1000);
+    if (!data || data.finalizado) { clearInterval(timers[index]); return; }
+    const elapsedMs = calcularElapsedMs(data, Date.now());
+    const timerEl   = document.getElementById(`timer-${index}`);
+    if (timerEl) timerEl.textContent = formatTime(Math.floor(elapsedMs / 1000));
+  }, 500);
 }
 
+// ============================================================
+//  STATS BAR
+// ============================================================
+function actualizarStats() {
+  let activos = 0, pausados = 0, finalizados = 0;
+  for (let i in pausedTimers) {
+    const d = pausedTimers[i];
+    if (d.finalizado)   finalizados++;
+    else if (d.paused)  pausados++;
+    else                activos++;
+  }
+  const el = id => document.getElementById(id);
+  if (el("stat-activos"))     el("stat-activos").textContent     = activos;
+  if (el("stat-pausados"))    el("stat-pausados").textContent    = pausados;
+  if (el("stat-finalizados")) el("stat-finalizados").textContent = finalizados;
+}
 
-
-function programarPausas(index, sacador, now) {
-  const dia = now.getDay();
+// ============================================================
+//  BADGE DE PRÓXIMA PAUSA
+// ============================================================
+function calcularProximaPausa(sacador, now) {
+  const eventos = [];
 
   if (INDIVIDUAL_PAUSES[sacador]) {
-    const p1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
-    const r1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].reanuda);
-
-    if (p1 > now) {
-      setTimeout(() => autoPause(index, "individual"), p1 - now);
-    }
-
-    if (r1 > now) {
-      setTimeout(() => autoReanudar(index), r1 - now);
-    }
+    const p = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
+    if (p > now) eventos.push({ label: "🍽 Almuerzo", time: p, tipo: "almuerzo" });
   }
 
+  const dia = now.getDay();
   if (dayPausas[dia]) {
-    const pausaGeneral = getFutureTime(now, dayPausas[dia]);
-
-    if (pausaGeneral > now) {
-      setTimeout(() => autoPause(index, "general"), pausaGeneral - now);
-    }
-
-    let reanuda;
-    if (dia === 6) {
-      // Sábado → lunes 8:00 AM
-      reanuda = getFutureTime(addDays(now, 2), "08:00:00");
-    } else {
-      // Otros días → mañana 8:00 AM
-      reanuda = getFutureTime(addDays(now, 1), "08:00:00");
-    }
-
-    if (reanuda > now) {
-      setTimeout(() => autoReanudar(index), reanuda - now);
-    }
+    const p = getFutureTime(now, dayPausas[dia]);
+    if (p > now) eventos.push({ label: "🚪 Salida", time: p, tipo: "salida" });
   }
 
   if (HORAS_SALIDA[sacador]) {
-    const salida = getFutureTime(now, HORAS_SALIDA[sacador]);
-
-    if (salida > now) {
-      setTimeout(() => autoPause(index, "salida anticipada"), salida - now);
-    }
+    const p = getFutureTime(now, HORAS_SALIDA[sacador]);
+    if (p > now) eventos.push({ label: "🚪 Salida", time: p, tipo: "salida" });
   }
+
+  if (!eventos.length) return null;
+  eventos.sort((a, b) => a.time - b.time);
+  return eventos[0];
 }
 
+function renderBadgePausa(index) {
+  const data   = pausedTimers[index];
+  const badgeEl = document.getElementById(`badge-pausa-${index}`);
+  if (!badgeEl || !data || data.finalizado || data.paused) {
+    if (badgeEl) badgeEl.style.display = "none";
+    return;
+  }
+
+  const prox = calcularProximaPausa(data.sacador, new Date());
+  if (!prox) { badgeEl.style.display = "none"; return; }
+
+  const diffMs  = prox.time - Date.now();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH   = Math.floor(diffMin / 60);
+  const remMin  = diffMin % 60;
+
+  let textoTiempo = diffH > 0
+    ? `en ${diffH}h ${pad(remMin)}m`
+    : `en ${diffMin}m`;
+
+  const esPronto = diffMin <= 15;
+
+  badgeEl.textContent = `${prox.label} ${textoTiempo}`;
+  badgeEl.className   = `badge-pausa tipo-${prox.tipo}${esPronto ? " tipo-pronto" : ""}`;
+  badgeEl.style.display = "inline-flex";
+}
+
+function iniciarBadgeTimer(index) {
+  // Actualizar el badge cada minuto
+  setInterval(() => renderBadgePausa(index), 60000);
+  renderBadgePausa(index); // Render inmediato
+}
+
+// ============================================================
+//  PAUSA / REANUDACIÓN
+// ============================================================
 function autoPause(index, tipo = "manual") {
   const data = pausedTimers[index];
-  if (data && !data.paused) {
-    data.paused = true;
-    data.pausedAt = Date.now();
-    data.tipoPausa = tipo; // opcional: "manual" o "automática"
-    console.log(`⏸ Pedido ${data.codigo} pausado (${tipo})`);
-    guardarPedidos();
-  }
+  if (!data || data.paused || data.finalizado) return;
+  data.paused    = true;
+  data.pausedAt  = Date.now();
+  data.tipoPausa = tipo;
+  const btn = document.querySelector(`#card-${index} .btn-pause`);
+  if (btn) { btn.textContent = "⏸ Pausado"; btn.classList.add("paused"); }
+  renderBadgePausa(index);
+  guardarPedidos();
+  actualizarStats();
 }
 
 function autoReanudar(index) {
   const data = pausedTimers[index];
-  if (data && data.paused) {
-    const ahora = Date.now();
-    data.pausedDuration += ahora - data.pausedAt; // sumar tiempo en pausa
-    data.paused = false;
-    data.pausedAt = null;
-    data.reanudado = true;
-    console.log(`▶ Pedido ${data.codigo} reanudado`);
-    guardarPedidos();
-  }
-}
-
-
-// Formatea fecha para enviar a Sheets (YYYY-MM-DD HH:MM:SS)
-function formatDateTime(date) {
-  const pad = n => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-         `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
-
-// Formatea duración en segundos a HH:MM:SS
-function formatTime(totalSeconds) {
-  totalSeconds = Math.floor(totalSeconds);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function finalizar(index) {
-  const now = new Date();
-  const fechaCorta = formatDateTime(now);
-  document.getElementById(`end-${index}`).textContent = fechaCorta;
-
-  clearInterval(timers[index]);
-
-  const data = pausedTimers[index];
-  const total = data.cantidad;
-
-  const cantidadSacada = parseInt(prompt(`¿Cuántos productos se sacaron del pedido? (Esperado: ${total})`), 10);
-  if (isNaN(cantidadSacada) || cantidadSacada < 0 || cantidadSacada > total) {
-    alert("Cantidad inválida.");
-    return;
-  }
-
-  const porcentaje = Math.round((cantidadSacada / total) * 100);
-
-  // Calcular duración real SIN tiempo en pausa
-  const duracionMs = now.getTime() - data.startTimestamp - (data.pausedDuration || 0);
-
-  let tiempoFormateado = "00:00:00";
-  let tiempoPorProductoSegundos = 0;
-
-  if (cantidadSacada > 0) {
-    tiempoPorProductoSegundos = duracionMs / 1000 / cantidadSacada; // en segundos
-    tiempoFormateado = formatTime(Math.floor(tiempoPorProductoSegundos));
-  }
-
-  document.getElementById(`tpp-${index}`).textContent = tiempoFormateado;
-
-  alert(`${data.sacador} sacó un ${porcentaje}% del pedido.\nTiempo por producto: ${tiempoFormateado}`);
-
-  // 🧾 PEDIR BULTOS
-const bultos = parseInt(
-  prompt("¿Cuántos bultos se realizaron en este pedido?"),
-  10
-);
-
-if (isNaN(bultos) || bultos < 0) {
-  alert("Cantidad de bultos inválida.");
-  return;
-}
-
-// 💰 PEDIR MONTO TOTAL
-const montoTotal = parseFloat(
-  prompt("¿Cuál es el monto total de este pedido? (solo números)")
-);
-
-if (isNaN(montoTotal) || montoTotal < 0) {
-  alert("Monto inválido.");
-  return;
-}
-
-// 📢 Notificación final
-alert(
-  `📦 Bultos realizados: ${bultos}\n💰 Monto total del pedido: RD$ ${montoTotal.toFixed(2)}`
-);
-
-
-  const task = document.getElementById(`codigo-${index}`).closest(".task");
-  task.style.backgroundColor = "#d4edda";
-  task.style.borderColor = "#28a745";
-
-  if (!document.getElementById(`eliminar-${index}`)) {
-    const eliminarBtn = document.createElement("button");
-    eliminarBtn.id = `eliminar-${index}`;
-    eliminarBtn.textContent = "Eliminar";
-    eliminarBtn.style.backgroundColor = "#dc3545";
-    eliminarBtn.style.marginLeft = "10px";
-    eliminarBtn.onclick = () => eliminar(index);
-    task.appendChild(eliminarBtn);
-  }
-
-  // Guardar datos en memoria
-  data.finalizado = true;
-  data.endTimestamp = now.getTime();
-  data.tiempoPorProducto = tiempoFormateado;
+  if (!data || !data.paused || data.finalizado) return;
+  const ahora = Date.now();
+  data.pausedDuration = (data.pausedDuration || 0) + (ahora - (data.pausedAt || ahora));
+  data.paused    = false;
+  data.pausedAt  = null;
+  data.reanudado = true;
+  iniciarTimer(index);
+  const btn = document.querySelector(`#card-${index} .btn-pause`);
+  if (btn) { btn.textContent = "⏸ Pausar"; btn.classList.remove("paused"); }
+  renderBadgePausa(index);
   guardarPedidos();
-
-  // Enviar a Google Sheets principal (historial detallado)
-// ✅ Enviar a Google Sheets de pedidos (historial)
-fetch("https://api.sheetbest.com/sheets/1b46c8e9-a786-474f-bc8d-f4f61f181b03", {
-  method: "POST",
-  mode: "cors",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    "Codigo P": data.codigo,
-    "Sacador": data.sacador,
-    "CantidadProductos ": data.cantidad,
-    "HoraInicio ": formatDateTime(new Date(data.startTimestamp)),
-    "HoraFin ": formatDateTime(new Date(data.endTimestamp)),
-    "TiempoTotal ": formatTime(Math.floor(duracionMs / 1000)),
-    "TiempoPorProductoSegundos": tiempoPorProductoSegundos.toFixed(2),
-    "TiempoPorProducto": tiempoFormateado, 
-    
-  // 🆕 NUEVOS CAMPOS
-  "Bultos": bultos,
-  "MontoFinal": montoTotal.toFixed(2)
-  })
-})
-  .then(res => res.text())
-  .then(text => console.log("✅ Datos enviados a Sheets historial:", text))
-  .catch(err => console.error("❌ Error al enviar historial:", err));
-
-  // Actualizar estatus en Google Sheet externo (proceso -> finalizado)
-  fetch(`https://api.sheetbest.com/sheets/7793c015-368c-456b-a175-0fc6cc94821f/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
-    method: "PATCH",
-    mode: "cors",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      "CantidadProductos": data.cantidad,
-      "HoraFin": formatDateTime(new Date(data.endTimestamp)),
-      "Estatus": "Finalizado"
-    })
-  })
-  .then(res => res.json())
-  .then(resp => console.log("✅ Pedido actualizado a FINALIZADO en Sheet externo:", resp))
-  .catch(err => console.error("❌ Error al actualizar Sheet externo:", err));
-
-  delete timers[index];
+  actualizarStats();
 }
 
+function pausar(index)   { autoPause(index, "manual"); }
+function reanudar(index) { autoReanudar(index); }
+function pausarTodos()   { for (let i in pausedTimers) autoPause(i, "manual"); }
+function reanudarTodos() { for (let i in pausedTimers) autoReanudar(i); }
 
-
-
-
-
-function eliminar(index) {
-  delete pausedTimers[index];
-  delete timers[index];
-  const task = document.getElementById(`codigo-${index}`).closest(".task");
-  if (task) task.remove();
-  guardarPedidos();
-}
-
-function formatTime(totalSeconds) {
-  totalSeconds = Math.floor(totalSeconds); // asegúrate de entero
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-
-
+// ============================================================
+//  PROGRAMAR PAUSAS AUTOMÁTICAS
+// ============================================================
 function getFutureTime(date, timeStr) {
   const [h, m, s] = timeStr.split(":").map(Number);
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m, s);
 }
 
 function addDays(date, d) {
-  const newDate = new Date(date);
-  newDate.setDate(date.getDate() + d);
-  return newDate;
+  const nd = new Date(date);
+  nd.setDate(date.getDate() + d);
+  return nd;
 }
 
-function guardarPedidos() {
-  for (let i in pausedTimers) {
-    const data = pausedTimers[i];
-    if (!data.finalizado) {
-      if (data.paused) {
-        data.elapsed = data.pausedAt - data.startTimestamp - data.pausedDuration;
-      } else {
-        data.elapsed = Date.now() - data.startTimestamp - data.pausedDuration;
-      }
+function programarPausas(index, sacador, now) {
+  const dia = now.getDay();
+  if (INDIVIDUAL_PAUSES[sacador]) {
+    const p1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
+    const r1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].reanuda);
+    if (p1 > now) setTimeout(() => autoPause(index, "almuerzo"), p1 - now);
+    if (r1 > now) setTimeout(() => autoReanudar(index),          r1 - now);
+  }
+  if (dayPausas[dia]) {
+    const pausaGeneral = getFutureTime(now, dayPausas[dia]);
+    const reanuda = dia === 6
+      ? getFutureTime(addDays(now, 2), "08:00:00")
+      : getFutureTime(addDays(now, 1), "08:00:00");
+    if (pausaGeneral > now) setTimeout(() => autoPause(index, "salida"),  pausaGeneral - now);
+    if (reanuda      > now) setTimeout(() => autoReanudar(index),         reanuda - now);
+  }
+  if (HORAS_SALIDA[sacador]) {
+    const salida = getFutureTime(now, HORAS_SALIDA[sacador]);
+    if (salida > now) setTimeout(() => autoPause(index, "salida anticipada"), salida - now);
+  }
+}
+
+// ============================================================
+//  AGREGAR PEDIDO
+// ============================================================
+function agregarPedido() {
+  const codigo   = document.getElementById("codigo").value.trim();
+  const sacador  = document.getElementById("sacador").value;
+  const cantidad = parseInt(document.getElementById("cantidad").value.trim(), 10);
+  const now      = new Date();
+
+  if (!codigo || !sacador || isNaN(cantidad) || cantidad <= 0) {
+    mostrarToast("⚠️ Completa todos los campos correctamente.", "warn"); return;
+  }
+  if (now.getDay() === 0) {
+    mostrarToast("🚫 Los domingos no se pueden iniciar pedidos.", "error"); return;
+  }
+
+  const index = Date.now();
+  const pedidoData = {
+    index, codigo, sacador, cantidad,
+    startTimestamp:  now.getTime(),
+    pausedDuration:  0,
+    pausedAt:        null,
+    paused:          false,
+    tipoPausa:       null,
+    reanudado:       false,
+    finalizado:      false,
+    tiempoPorProducto: null,
+    elapsedMsFinal:  0
+  };
+
+  pausedTimers[index] = pedidoData;
+  crearTarjeta(pedidoData);
+  iniciarTimer(index);
+  iniciarBadgeTimer(index);
+  programarPausas(index, sacador, now);
+  guardarPedidos();
+  actualizarStats();
+  aplicarFiltro();
+
+  fetch(API_HOJA_PROCESO, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      NumeroPedido:        codigo,
+      Sacador:             sacador,
+      CantidadReferencias: cantidad,
+      HoraInicio:          formatDateTime(now),
+      Estatus:             "En Proceso... 📃"
+    })
+  }).catch(err => console.error("❌ Error al enviar en proceso:", err));
+
+  document.getElementById("codigo").value   = "";
+  document.getElementById("sacador").value  = "";
+  document.getElementById("cantidad").value = "";
+  document.getElementById("codigo").focus();
+}
+
+// ============================================================
+//  CREAR TARJETA
+// ============================================================
+function crearTarjeta(pedido) {
+  const { index, codigo, sacador, cantidad, startTimestamp } = pedido;
+
+  const task = document.createElement("div");
+  task.className = "task";
+  task.id = `card-${index}`;
+  task.dataset.codigo  = codigo.toLowerCase();
+  task.dataset.sacador = sacador.toLowerCase();
+
+  task.innerHTML = `
+    <div class="task-header">
+      <div class="task-code">#${codigo}</div>
+      <button class="btn-delete" onclick="eliminar(${index})" title="Eliminar">✕</button>
+    </div>
+    <div class="task-sacador">${sacador}</div>
+    <div class="task-meta">
+      <span class="meta-item">📦 <strong>${cantidad}</strong> productos</span>
+      <span class="badge-pausa" id="badge-pausa-${index}" style="display:none;"></span>
+    </div>
+    <div class="task-times">
+      <div class="time-row">
+        <span class="time-label">Inicio</span>
+        <span class="time-value" id="start-${index}">${formatearFecha(startTimestamp)}</span>
+      </div>
+      <div class="time-row">
+        <span class="time-label">Fin</span>
+        <span class="time-value" id="end-${index}">—</span>
+      </div>
+    </div>
+    <div class="task-timer" id="timer-${index}">00:00:00</div>
+    <div class="task-tpp" id="tpp-wrap-${index}" style="display:none;">
+      ⏱ <span id="tpp-${index}">--</span> por producto
+    </div>
+    <div class="task-actions">
+      <button class="btn-action btn-pause"  onclick="pausar(${index})">⏸ Pausar</button>
+      <button class="btn-action btn-resume" onclick="reanudar(${index})">▶ Reanudar</button>
+      <button class="btn-action btn-finish" onclick="abrirModalFinalizar(${index})">✔ Finalizar</button>
+    </div>
+  `;
+
+  taskList.appendChild(task);
+}
+
+// ============================================================
+//  MODAL DE FINALIZAR — 3 pasos
+// ============================================================
+let modalIndex    = null;
+let modalStep     = 1;
+let modalRespuestas = {};
+
+function abrirModalFinalizar(index) {
+  modalIndex      = index;
+  modalStep       = 1;
+  modalRespuestas = {};
+  const overlay   = document.getElementById("modal-overlay");
+  overlay.classList.add("open");
+  renderModalStep(1);
+  setTimeout(() => {
+    const input = document.getElementById("modal-input");
+    if (input) input.focus();
+  }, 100);
+}
+
+function cerrarModal() {
+  document.getElementById("modal-overlay").classList.remove("open");
+  modalIndex = null;
+}
+
+function renderModalStep(step) {
+  const data = pausedTimers[modalIndex];
+  const titles = [
+    "",
+    "¿Cuántos productos se sacaron?",
+    "¿Cuántos bultos se realizaron?",
+    "¿Cuál es el monto total del pedido?",
+    "Resumen del pedido"
+  ];
+  const subtitles = [
+    "",
+    `Esperado: ${data.cantidad} producto${data.cantidad > 1 ? "s" : ""}`,
+    "Cantidad de bultos completados",
+    "Monto en RD$",
+    "Confirma los datos antes de guardar"
+  ];
+
+  // Step dots
+  document.getElementById("modal-title").textContent    = titles[step];
+  document.getElementById("modal-subtitle").textContent = subtitles[step];
+
+  const dots = document.querySelectorAll(".modal-step-dot");
+  dots.forEach((dot, i) => {
+    dot.classList.remove("active", "done");
+    if (i + 1 < step)       dot.classList.add("done");
+    else if (i + 1 === step) dot.classList.add("active");
+  });
+
+  const body   = document.getElementById("modal-body");
+  const footer = document.getElementById("modal-footer");
+  body.innerHTML = "";
+
+  if (step < 4) {
+    // Input steps
+    const isLast = step === 3;
+    const tipos  = ["", "number", "number", "number"];
+    const hints  = [
+      "",
+      `Máximo: ${data.cantidad}`,
+      "Solo números enteros positivos",
+      "Ejemplo: 1500.00"
+    ];
+
+    body.innerHTML = `
+      <div class="modal-field">
+        <label>${titles[step]}</label>
+        <input type="${tipos[step]}" id="modal-input" placeholder="0"
+               min="0" step="${step === 3 ? "0.01" : "1"}" />
+      </div>
+      <p class="modal-hint" id="modal-hint">${hints[step]}</p>
+      <p class="modal-hint error-msg" id="modal-error">Valor inválido, intenta de nuevo.</p>
+    `;
+
+    footer.innerHTML = `
+      <button class="modal-btn secondary" onclick="cerrarModal()">Cancelar</button>
+      <button class="modal-btn primary" onclick="modalSiguiente()">
+        ${isLast ? "Ver resumen →" : "Siguiente →"}
+      </button>
+    `;
+
+    const input = document.getElementById("modal-input");
+    if (input) {
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); modalSiguiente(); }
+      });
     }
+
+  } else {
+    // Resumen
+    const now      = new Date();
+    const elapsedMs = calcularElapsedMs(data, now.getTime());
+    const elapsedSeg = Math.floor(elapsedMs / 1000);
+    const cantidadSacada = modalRespuestas.cantidad;
+    const porcentaje = Math.round((cantidadSacada / data.cantidad) * 100);
+    let tpp = "—";
+    if (cantidadSacada > 0) {
+      tpp = formatTime(Math.floor(elapsedSeg / cantidadSacada));
+    }
+
+    body.innerHTML = `
+      <div class="modal-summary">
+        <div class="summary-row">
+          <span class="summary-key">Pedido</span>
+          <span class="summary-val highlight">#${data.codigo}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-key">Sacador</span>
+          <span class="summary-val">${data.sacador.split(" ").slice(0,2).join(" ")}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-key">Productos sacados</span>
+          <span class="summary-val">${cantidadSacada} / ${data.cantidad} (${porcentaje}%)</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-key">Tiempo total</span>
+          <span class="summary-val success">${formatTime(elapsedSeg)}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-key">Tiempo/producto</span>
+          <span class="summary-val success">${tpp}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-key">Bultos</span>
+          <span class="summary-val">${modalRespuestas.bultos}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-key">Monto total</span>
+          <span class="summary-val">RD$ ${parseFloat(modalRespuestas.monto).toFixed(2)}</span>
+        </div>
+      </div>
+    `;
+
+    footer.innerHTML = `
+      <button class="modal-btn secondary" onclick="modalAnterior()">← Atrás</button>
+      <button class="modal-btn success" onclick="confirmarFinalizar()">✔ Confirmar</button>
+    `;
+  }
+}
+
+function modalSiguiente() {
+  const input    = document.getElementById("modal-input");
+  const errorEl  = document.getElementById("modal-error");
+  const data     = pausedTimers[modalIndex];
+  const val      = parseFloat(input.value);
+
+  // Validación por paso
+  let valido = true;
+  let mensajeError = "Valor inválido, intenta de nuevo.";
+
+  if (modalStep === 1) {
+    if (isNaN(val) || val < 0 || val > data.cantidad || !Number.isInteger(val)) {
+      valido = false;
+      mensajeError = `Ingresa un número entre 0 y ${data.cantidad}.`;
+    } else {
+      modalRespuestas.cantidad = val;
+    }
+  } else if (modalStep === 2) {
+    if (isNaN(val) || val < 0 || !Number.isInteger(val)) {
+      valido = false;
+      mensajeError = "Ingresa un número entero positivo.";
+    } else {
+      modalRespuestas.bultos = val;
+    }
+  } else if (modalStep === 3) {
+    if (isNaN(val) || val < 0) {
+      valido = false;
+      mensajeError = "Ingresa un monto válido mayor o igual a 0.";
+    } else {
+      modalRespuestas.monto = val;
+    }
+  }
+
+  if (!valido) {
+    input.classList.add("error");
+    errorEl.textContent = mensajeError;
+    errorEl.classList.add("visible");
+    input.focus();
+    return;
+  }
+
+  modalStep++;
+  renderModalStep(modalStep);
+  setTimeout(() => {
+    const ni = document.getElementById("modal-input");
+    if (ni) ni.focus();
+  }, 80);
+}
+
+function modalAnterior() {
+  if (modalStep > 1) {
+    modalStep--;
+    renderModalStep(modalStep);
+    setTimeout(() => {
+      const ni = document.getElementById("modal-input");
+      if (ni) ni.focus();
+    }, 80);
+  }
+}
+
+function confirmarFinalizar() {
+  const now  = new Date();
+  const data = pausedTimers[modalIndex];
+  if (!data) return;
+
+  cerrarModal();
+
+  // Cerrar pausa si estaba activa
+  if (data.paused) {
+    data.pausedDuration = (data.pausedDuration || 0) + (now.getTime() - (data.pausedAt || now.getTime()));
+    data.paused   = false;
+    data.pausedAt = null;
+  }
+
+  const elapsedMs  = calcularElapsedMs(data, now.getTime());
+  const elapsedSeg = Math.floor(elapsedMs / 1000);
+  const cantidadSacada = modalRespuestas.cantidad;
+  const bultos         = modalRespuestas.bultos;
+  const montoTotal     = parseFloat(modalRespuestas.monto);
+  const porcentaje     = Math.round((cantidadSacada / data.cantidad) * 100);
+
+  let tiempoPorProductoSeg = 0;
+  let tiempoFormateado = "00:00:00";
+  if (cantidadSacada > 0) {
+    tiempoPorProductoSeg = elapsedSeg / cantidadSacada;
+    tiempoFormateado = formatTime(Math.floor(tiempoPorProductoSeg));
+  }
+
+  data.finalizado       = true;
+  data.endTimestamp     = now.getTime();
+  data.tiempoPorProducto = tiempoFormateado;
+  data.elapsedMsFinal   = elapsedMs;
+
+  clearInterval(timers[modalIndex]);
+  delete timers[modalIndex];
+
+  const index = modalIndex;
+  const card    = document.getElementById(`card-${index}`);
+  if (card) card.classList.add("finalizado");
+
+  const endEl   = document.getElementById(`end-${index}`);
+  if (endEl)    endEl.textContent = formatearFecha(now.getTime());
+
+  const timerEl = document.getElementById(`timer-${index}`);
+  if (timerEl)  timerEl.textContent = formatTime(elapsedSeg);
+
+  const tppWrap = document.getElementById(`tpp-wrap-${index}`);
+  const tppEl   = document.getElementById(`tpp-${index}`);
+  const badgeEl = document.getElementById(`badge-pausa-${index}`);
+  if (tppWrap) tppWrap.style.display = "block";
+  if (tppEl)   tppEl.textContent = tiempoFormateado;
+  if (badgeEl) badgeEl.style.display = "none";
+
+  guardarPedidos();
+  actualizarStats();
+
+  mostrarToast(
+    `✅ ${data.sacador.split(" ")[0]} — ${porcentaje}% | ${tiempoFormateado}/prod | ${bultos} bultos | RD$ ${montoTotal.toFixed(2)}`,
+    "success"
+  );
+
+  fetch(API_HOJA_HISTORIAL, {
+    method: "POST",
+    mode: "cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      "Codigo P":                  data.codigo,
+      "Sacador":                   data.sacador,
+      "CantidadProductos ":        data.cantidad,
+      "HoraInicio ":               formatDateTime(new Date(data.startTimestamp)),
+      "HoraFin ":                  formatDateTime(new Date(data.endTimestamp)),
+      "TiempoTotal ":              formatTime(elapsedSeg),
+      "TiempoPorProductoSegundos": tiempoPorProductoSeg.toFixed(2),
+      "TiempoPorProducto":         tiempoFormateado,
+      "Bultos":                    bultos,
+      "MontoFinal":                montoTotal.toFixed(2)
+    })
+  }).catch(err => console.error("❌ Error al enviar historial:", err));
+
+  fetch(`${API_HOJA_PROCESO}/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
+    method: "PATCH",
+    mode: "cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      CantidadProductos: data.cantidad,
+      HoraFin:           formatDateTime(new Date(data.endTimestamp)),
+      Estatus:           "Finalizado"
+    })
+  }).catch(err => console.error("❌ Error al actualizar Sheet externo:", err));
+}
+
+// ============================================================
+//  FILTRO
+// ============================================================
+function aplicarFiltro() {
+  const textoBusqueda = (document.getElementById("filtro-texto")?.value || "").toLowerCase().trim();
+  const sacadorFiltro = (document.getElementById("filtro-sacador")?.value || "").toLowerCase();
+
+  let visibles = 0;
+  document.querySelectorAll(".task").forEach(card => {
+    const matchCodigo  = card.dataset.codigo?.includes(textoBusqueda) ?? true;
+    const matchSacador = sacadorFiltro
+      ? card.dataset.sacador?.includes(sacadorFiltro)
+      : true;
+    const visible = matchCodigo && matchSacador;
+    card.style.display = visible ? "" : "none";
+    if (visible) visibles++;
+  });
+
+  const countEl = document.getElementById("filter-count");
+  if (countEl) {
+    const total = Object.keys(pausedTimers).length;
+    countEl.textContent = textoBusqueda || sacadorFiltro
+      ? `${visibles} de ${total}`
+      : `${total} pedidos`;
+  }
+
+  // Empty state
+  const emptyEl = document.getElementById("empty-state");
+  if (emptyEl) emptyEl.classList.toggle("visible", visibles === 0 && total > 0);
+}
+
+function limpiarFiltro() {
+  const tf = document.getElementById("filtro-texto");
+  const sf = document.getElementById("filtro-sacador");
+  if (tf) tf.value = "";
+  if (sf) sf.value = "";
+  aplicarFiltro();
+}
+
+// ============================================================
+//  ELIMINAR
+// ============================================================
+function eliminar(index) {
+  clearInterval(timers[index]);
+  delete timers[index];
+  delete pausedTimers[index];
+  const card = document.getElementById(`card-${index}`);
+  if (card) {
+    card.style.animation = "fadeOut 0.3s ease forwards";
+    setTimeout(() => { card.remove(); aplicarFiltro(); }, 300);
+  }
+  guardarPedidos();
+  actualizarStats();
+}
+
+function eliminarTodos() {
+  if (!confirm("¿Eliminar todos los pedidos? Esta acción no se puede deshacer.")) return;
+  for (let index in pausedTimers) {
+    clearInterval(timers[index]);
+    const card = document.getElementById(`card-${index}`);
+    if (card) card.remove();
+  }
+  pausedTimers = {};
+  timers       = {};
+  guardarPedidos();
+  actualizarStats();
+  aplicarFiltro();
+}
+
+// ============================================================
+//  PERSISTENCIA
+// ============================================================
+function guardarPedidos() {
+  const ahora = Date.now();
+  for (let i in pausedTimers) {
+    const d = pausedTimers[i];
+    if (!d.finalizado) d.elapsedSnapshot = calcularElapsedMs(d, ahora);
   }
   localStorage.setItem("pedidos", JSON.stringify(pausedTimers));
 }
 
-function pausar(index) { autoPause(index, "manual"); }
-function reanudar(index) { autoReanudar(index); }
-function pausarTodos() { for (let i in pausedTimers) autoPause(i, "manual"); }
-function reanudarTodos() { for (let i in pausedTimers) autoReanudar(i); }
-
-function formatearFecha(timestamp) {
-  const fecha = new Date(timestamp);
-  const opcionesFecha = { day: '2-digit', month: '2-digit' };
-  const opcionesHora = { hour: '2-digit', minute: '2-digit', hour12: true };
-
-  const fechaStr = fecha.toLocaleDateString('es-ES', opcionesFecha); // ej: "19/07"
-  const horaStr = fecha.toLocaleTimeString('es-ES', opcionesHora).toLowerCase(); // ej: "04:40 p. m."
-
-  return `${fechaStr}; ${horaStr.replace('.', '').replace(/\s/g, '')}`; // quita espacios y puntos extra
-}
-
-
 function reconstruirPedido(pedido) {
   const index = pedido.index;
-  const task = document.createElement("div");
-  task.className = "task";
-  task.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 id="codigo-${index}">${pedido.codigo}</h3>
-      <button onclick="eliminar(${index})" style="background:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-weight:bold;">X</button>
-    </div>
-    <p id="sacador-${index}">${pedido.sacador}</p>
-    <p>Cantidad de productos: <span>${pedido.cantidad}</span></p>
-    <p>Inicio: <span id="start-${index}">${pedido.startTimeStr || formatearFecha(pedido.startTimestamp)}</span></p>
-    <p>Final: <span id="end-${index}">${pedido.endTimestamp ? formatearFecha(pedido.endTimestamp) : '--/-- --:--'}</span></p>
-    <p>Tiempo: <span id="timer-${index}">00:00:00</span></p>
-    <p>Tiempo por producto: <span id="tpp-${index}">${pedido.tiempoPorProducto ? pedido.tiempoPorProducto + ' min' : '--'}</span></p>
-    <button onclick="pausar(${index})">Pausar</button>
-    <button onclick="reanudar(${index})">Reanudar</button>
-    <button onclick="finalizar(${index})">Finalizar</button>
-  `;
+  if (!pedido.finalizado && !pedido.paused) {
+    const ahora      = Date.now();
+    const snapshotMs = pedido.elapsedSnapshot || 0;
+    pedido.startTimestamp = ahora - snapshotMs;
+    pedido.pausedDuration = 0;
+  }
+  pausedTimers[index] = pedido;
+  crearTarjeta(pedido);
 
   if (pedido.finalizado) {
-    task.style.backgroundColor = "#d4edda";
-    task.style.borderColor = "#28a745";
-  }
-
-  taskList.appendChild(task);
-  pausedTimers[index] = pedido;
-
-  if (!pedido.finalizado) {
-    if (pedido.paused) {
-      const elapsed = (pedido.elapsed || 0) / 1000;
-      document.getElementById(`timer-${index}`).textContent = formatTime(Math.floor(elapsed));
-    } else {
-      iniciarTimer(index);
-    }
+    const card = document.getElementById(`card-${index}`);
+    if (card) card.classList.add("finalizado");
+    const tppWrap = document.getElementById(`tpp-wrap-${index}`);
+    const tppEl   = document.getElementById(`tpp-${index}`);
+    const timerEl = document.getElementById(`timer-${index}`);
+    const endEl   = document.getElementById(`end-${index}`);
+    if (tppWrap) tppWrap.style.display = "block";
+    if (tppEl && pedido.tiempoPorProducto) tppEl.textContent = pedido.tiempoPorProducto;
+    if (timerEl) timerEl.textContent = formatTime(Math.floor((pedido.elapsedMsFinal || 0) / 1000));
+    if (endEl && pedido.endTimestamp)  endEl.textContent = formatearFecha(pedido.endTimestamp);
+  } else {
+    iniciarTimer(index);
+    iniciarBadgeTimer(index);
     programarPausas(index, pedido.sacador, new Date());
-  }
-}
-
-function eliminarTodos() {
-  if (confirm("¿Estás seguro de que deseas eliminar todos los pedidos? Esta acción no se puede deshacer.")) {
-    for (let index in pausedTimers) {
-      const task = document.getElementById(`codigo-${index}`)?.closest(".task");
-      if (task) task.remove();
-      clearInterval(timers[index]);
+    if (pedido.paused) {
+      const btn = document.querySelector(`#card-${index} .btn-pause`);
+      if (btn) { btn.textContent = "⏸ Pausado"; btn.classList.add("paused"); }
     }
-    pausedTimers = {};
-    timers = {};
-    guardarPedidos();
   }
 }
 
+// ============================================================
+//  TOAST
+// ============================================================
+function mostrarToast(msg, tipo = "info") {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${tipo}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 400);
+  }, 4000);
+}
+
+// ============================================================
+//  VERIFICAR MES
+// ============================================================
 function verificarMesActual() {
-  const now = new Date();
+  const now       = new Date();
   const mesActual = now.getMonth();
-  const añoActual = now.getFullYear();
-  const claveMes = "mes_actual_guardado";
-  const claveSacadores = `sacadores_${añoActual}_${mesActual}`;
-
-  const mesGuardado = parseInt(localStorage.getItem(claveMes), 10);
-
-  if (isNaN(mesGuardado) || mesGuardado !== mesActual) {
-    // Cambió el mes, limpiar ranking
-    localStorage.setItem(claveSacadores, "{}");
-    localStorage.setItem(claveMes, mesActual);
+  const saved     = parseInt(localStorage.getItem("mes_actual_guardado"), 10);
+  if (isNaN(saved) || saved !== mesActual) {
+    localStorage.setItem(`sacadores_${now.getFullYear()}_${mesActual}`, "{}");
+    localStorage.setItem("mes_actual_guardado", mesActual);
   }
 }
+
+// ============================================================
+//  INICIALIZACIÓN
+// ============================================================
+window.onload = () => {
+  verificarMesActual();
+  const saved = JSON.parse(localStorage.getItem("pedidos")) || {};
+  Object.values(saved).forEach(pedido => reconstruirPedido(pedido));
+  actualizarStats();
+  aplicarFiltro();
+};
