@@ -2,7 +2,7 @@
 //  CONFIGURACIÓN
 // ============================================================
 const API_HOJA_PROCESO   = "https://api.sheetbest.com/sheets/7793c015-368c-456b-a175-0fc6cc94821f";
-const API_HOJA_HISTORIAL = "https://api.sheetbest.com/sheets/1b46c8e9-a786-474f-bc8d-f4f61f181b03";
+const API_HOJA_HISTORIAL = "https://api.sheetbest.com/sheets/cce35084-ee62-4934-b2ed-eb5fcd2d414b";
 
 let taskList     = document.getElementById("task-list");
 let timers       = {};
