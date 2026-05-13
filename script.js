@@ -166,9 +166,8 @@ function renderBadgePausa(index) {
 }
 
 function iniciarBadgeTimer(index) {
-  // Actualizar el badge cada minuto
   setInterval(() => renderBadgePausa(index), 60000);
-  renderBadgePausa(index); // Render inmediato
+  renderBadgePausa(index);
 }
 
 // ============================================================
@@ -389,7 +388,6 @@ function renderModalStep(step) {
     "Confirma los datos antes de guardar"
   ];
 
-  // Step dots
   document.getElementById("modal-title").textContent    = titles[step];
   document.getElementById("modal-subtitle").textContent = subtitles[step];
 
@@ -405,7 +403,6 @@ function renderModalStep(step) {
   body.innerHTML = "";
 
   if (step < 4) {
-    // Input steps
     const isLast = step === 3;
     const tipos  = ["", "number", "number", "number"];
     const hints  = [
@@ -440,7 +437,6 @@ function renderModalStep(step) {
     }
 
   } else {
-    // Resumen
     const now      = new Date();
     const elapsedMs = calcularElapsedMs(data, now.getTime());
     const elapsedSeg = Math.floor(elapsedMs / 1000);
@@ -497,7 +493,6 @@ function modalSiguiente() {
   const data     = pausedTimers[modalIndex];
   const val      = parseFloat(input.value);
 
-  // Validación por paso
   let valido = true;
   let mensajeError = "Valor inválido, intenta de nuevo.";
 
@@ -558,7 +553,6 @@ function confirmarFinalizar() {
 
   cerrarModal();
 
-  // Cerrar pausa si estaba activa
   if (data.paused) {
     data.pausedDuration = (data.pausedDuration || 0) + (now.getTime() - (data.pausedAt || now.getTime()));
     data.paused   = false;
@@ -668,7 +662,6 @@ function aplicarFiltro() {
       : `${total} pedidos`;
   }
 
-  // Empty state
   const emptyEl = document.getElementById("empty-state");
   if (emptyEl) emptyEl.classList.toggle("visible", visibles === 0 && total > 0);
 }
@@ -712,25 +705,44 @@ function eliminarTodos() {
 }
 
 // ============================================================
-//  PERSISTENCIA
+//  PERSISTENCIA — CORREGIDA
 // ============================================================
 function guardarPedidos() {
   const ahora = Date.now();
   for (let i in pausedTimers) {
     const d = pausedTimers[i];
-    if (!d.finalizado) d.elapsedSnapshot = calcularElapsedMs(d, ahora);
+    if (!d.finalizado) {
+      // Guardamos cuánto tiempo lleva el cronómetro en este momento
+      d.elapsedSnapshot = calcularElapsedMs(d, ahora);
+      // Guardamos la marca de tiempo exacta en que se hizo el snapshot
+      d.savedAt = ahora;
+    }
   }
   localStorage.setItem("pedidos", JSON.stringify(pausedTimers));
 }
 
 function reconstruirPedido(pedido) {
   const index = pedido.index;
-  if (!pedido.finalizado && !pedido.paused) {
-    const ahora      = Date.now();
+
+  if (!pedido.finalizado) {
+    const ahora = Date.now();
     const snapshotMs = pedido.elapsedSnapshot || 0;
-    pedido.startTimestamp = ahora - snapshotMs;
-    pedido.pausedDuration = 0;
+
+    if (!pedido.paused) {
+      // ── Pedido activo ──
+      // Calculamos cuánto tiempo adicional pasó mientras la página estuvo cerrada
+      const tiempoCerradoMs = pedido.savedAt ? (ahora - pedido.savedAt) : 0;
+      // Reposicionamos el inicio para que el cronómetro continúe correctamente
+      pedido.startTimestamp = ahora - snapshotMs - tiempoCerradoMs;
+      pedido.pausedDuration = 0;
+    } else {
+      // ── Pedido pausado ──
+      // El tiempo pausado no avanza; solo restauramos el estado tal cual estaba
+      pedido.startTimestamp = ahora - snapshotMs - (pedido.pausedDuration || 0);
+      pedido.pausedAt = ahora; // Actualizamos la marca de pausa al momento actual
+    }
   }
+
   pausedTimers[index] = pedido;
   crearTarjeta(pedido);
 
