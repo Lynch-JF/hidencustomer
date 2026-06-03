@@ -4,6 +4,9 @@
 const API_HOJA_PROCESO   = "https://api.sheetbest.com/sheets/7793c015-368c-456b-a175-0fc6cc94821f";
 const API_HOJA_HISTORIAL = "https://api.sheetbest.com/sheets/cce35084-ee62-4934-b2ed-eb5fcd2d414b";
 
+// ── Umbral de referencias para sugerir equipo ──────────────
+const UMBRAL_EQUIPO = 100; // Cambia este valor según tu criterio
+
 let taskList     = document.getElementById("task-list");
 let timers       = {};
 let pausedTimers = {};
@@ -40,6 +43,23 @@ const HORAS_SALIDA = {
   "Juan De Jesús Peña Pérez":        "18:00:00",
   "Fernando Antonio Burgos Cabrera": "18:00:00"
 };
+
+const TODOS_LOS_SACADORES = [
+  "Omar Marmolejos Fajardo",
+  "Jairo Fernandez Salcedo",
+  "Ismael Augusto Veras Lasuse",
+  "Fernando Antonio Burgos Cabrera",
+  "Juan De Jesús Peña Pérez",
+  "Luis David Nuñez Santos",
+  "Yustin Alexander Mendez",
+  "Luis Eduardo Reyes",
+  "Omelbe Gomez Valdez",
+  "Bryhan Santo Cordero",
+  "Enrique Nuñez Brito",
+  "Cirilo Reynoso Acevedo",
+  "Yan Carlos Cruz Paulino",
+  "Wilkin Ortega Diaz"
+];
 
 // ============================================================
 //  UTILIDADES DE FORMATO
@@ -116,50 +136,39 @@ function actualizarStats() {
 // ============================================================
 function calcularProximaPausa(sacador, now) {
   const eventos = [];
-
   if (INDIVIDUAL_PAUSES[sacador]) {
     const p = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
     if (p > now) eventos.push({ label: "🍽 Almuerzo", time: p, tipo: "almuerzo" });
   }
-
   const dia = now.getDay();
   if (dayPausas[dia]) {
     const p = getFutureTime(now, dayPausas[dia]);
     if (p > now) eventos.push({ label: "🚪 Salida", time: p, tipo: "salida" });
   }
-
   if (HORAS_SALIDA[sacador]) {
     const p = getFutureTime(now, HORAS_SALIDA[sacador]);
     if (p > now) eventos.push({ label: "🚪 Salida", time: p, tipo: "salida" });
   }
-
   if (!eventos.length) return null;
   eventos.sort((a, b) => a.time - b.time);
   return eventos[0];
 }
 
 function renderBadgePausa(index) {
-  const data   = pausedTimers[index];
+  const data    = pausedTimers[index];
   const badgeEl = document.getElementById(`badge-pausa-${index}`);
   if (!badgeEl || !data || data.finalizado || data.paused) {
     if (badgeEl) badgeEl.style.display = "none";
     return;
   }
-
   const prox = calcularProximaPausa(data.sacador, new Date());
   if (!prox) { badgeEl.style.display = "none"; return; }
-
   const diffMs  = prox.time - Date.now();
   const diffMin = Math.floor(diffMs / 60000);
   const diffH   = Math.floor(diffMin / 60);
   const remMin  = diffMin % 60;
-
-  let textoTiempo = diffH > 0
-    ? `en ${diffH}h ${pad(remMin)}m`
-    : `en ${diffMin}m`;
-
-  const esPronto = diffMin <= 15;
-
+  let textoTiempo = diffH > 0 ? `en ${diffH}h ${pad(remMin)}m` : `en ${diffMin}m`;
+  const esPronto  = diffMin <= 15;
   badgeEl.textContent = `${prox.label} ${textoTiempo}`;
   badgeEl.className   = `badge-pausa tipo-${prox.tipo}${esPronto ? " tipo-pronto" : ""}`;
   badgeEl.style.display = "inline-flex";
@@ -270,14 +279,33 @@ function agregarPedido() {
     reanudado:       false,
     finalizado:      false,
     tiempoPorProducto: null,
-    elapsedMsFinal:  0
+    elapsedMsFinal:  0,
+    // ── campos de equipo ──
+    tieneEquipo:     false,
+    liderId:         sacador,
+    auxiliares:      []
   };
 
+  // Si la cantidad supera el umbral, abrir modal de equipo antes de crear
+  if (cantidad >= UMBRAL_EQUIPO) {
+    _pedidoPendiente = pedidoData;
+    _abrirModalEquipo(pedidoData);
+    return;
+  }
+
+  _crearPedidoFinal(pedidoData);
+}
+
+// Pedido en espera mientras el modal de equipo está abierto
+let _pedidoPendiente = null;
+
+function _crearPedidoFinal(pedidoData) {
+  const index = pedidoData.index;
   pausedTimers[index] = pedidoData;
   crearTarjeta(pedidoData);
   iniciarTimer(index);
   iniciarBadgeTimer(index);
-  programarPausas(index, sacador, now);
+  programarPausas(index, pedidoData.sacador, new Date());
   guardarPedidos();
   actualizarStats();
   aplicarFiltro();
@@ -286,11 +314,14 @@ function agregarPedido() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      NumeroPedido:        codigo,
-      Sacador:             sacador,
-      CantidadReferencias: cantidad,
-      HoraInicio:          formatDateTime(now),
-      Estatus:             "En Proceso... 📃"
+      NumeroPedido:        pedidoData.codigo,
+      Sacador:             pedidoData.sacador,
+      CantidadReferencias: pedidoData.cantidad,
+      HoraInicio:          formatDateTime(new Date(pedidoData.startTimestamp)),
+      Estatus:             pedidoData.tieneEquipo ? "En Proceso - Equipo 👥" : "En Proceso... 📃",
+      Equipo:              pedidoData.tieneEquipo
+        ? [pedidoData.liderId, ...pedidoData.auxiliares].join(", ")
+        : pedidoData.sacador
     })
   }).catch(err => console.error("❌ Error al enviar en proceso:", err));
 
@@ -301,16 +332,278 @@ function agregarPedido() {
 }
 
 // ============================================================
+//  MODAL EQUIPO — al superar el umbral
+// ============================================================
+let _equipoAuxContador = 0;
+
+function _abrirModalEquipo(pedidoData) {
+  _equipoAuxContador = 0;
+  const overlay = document.getElementById("modal-equipo-overlay");
+
+  document.getElementById("equipo-subtitle").textContent =
+    `Este pedido tiene ${pedidoData.cantidad} referencias (límite sugerido: ${UMBRAL_EQUIPO}). ` +
+    `¿Deseas asignar un equipo? El líder será el sacador seleccionado.`;
+
+  // Lider preview
+  const iniciales = pedidoData.sacador.split(" ").slice(0,2).map(w => w[0]).join("").toUpperCase();
+  document.getElementById("equipo-body").innerHTML = `
+    <div class="equipo-lider-preview">
+      <div class="equipo-lider-avatar">${iniciales}</div>
+      <div class="equipo-lider-info">
+        <div class="equipo-lider-name">${pedidoData.sacador}</div>
+        <div class="equipo-lider-badge">👑 Líder del equipo</div>
+      </div>
+    </div>
+    <div class="equipo-aux-list" id="equipo-aux-list"></div>
+    <button class="equipo-btn-add-more" onclick="_agregarFilaAux('${pedidoData.sacador}')">
+      + Agregar auxiliar
+    </button>
+  `;
+
+  document.getElementById("equipo-footer").innerHTML = `
+    <div class="equipo-footer-btns">
+      <button class="modal-btn secondary" onclick="_rechazarEquipo()">
+        Continuar sin equipo
+      </button>
+      <button class="modal-btn team" onclick="_confirmarEquipo()">
+        👥 Confirmar equipo
+      </button>
+    </div>
+  `;
+
+  overlay.classList.add("open");
+}
+
+function _agregarFilaAux(lider) {
+  _equipoAuxContador++;
+  const id = `aux-row-${_equipoAuxContador}`;
+  const fila = document.createElement("div");
+  fila.className = "equipo-aux-item";
+  fila.id = id;
+
+  const opciones = TODOS_LOS_SACADORES
+    .filter(s => s !== lider)
+    .map(s => `<option value="${s}">${s}</option>`)
+    .join("");
+
+  fila.innerHTML = `
+    <select class="equipo-aux-select">
+      <option value="">-- Selecciona auxiliar --</option>
+      ${opciones}
+    </select>
+    <button class="equipo-btn-remove-aux" onclick="document.getElementById('${id}').remove()" title="Quitar">✕</button>
+  `;
+
+  document.getElementById("equipo-aux-list").appendChild(fila);
+}
+
+function _rechazarEquipo() {
+  cerrarModalEquipo();
+  if (_pedidoPendiente) {
+    _pedidoPendiente.tieneEquipo = false;
+    _crearPedidoFinal(_pedidoPendiente);
+    _pedidoPendiente = null;
+  }
+}
+
+function _confirmarEquipo() {
+  if (!_pedidoPendiente) { cerrarModalEquipo(); return; }
+
+  const selects = document.querySelectorAll("#equipo-aux-list .equipo-aux-select");
+  const auxiliares = [];
+  let hayError = false;
+
+  selects.forEach(sel => {
+    if (!sel.value) {
+      sel.style.borderColor = "var(--danger)";
+      hayError = true;
+    } else {
+      sel.style.borderColor = "";
+      if (!auxiliares.includes(sel.value)) auxiliares.push(sel.value);
+    }
+  });
+
+  if (hayError) {
+    mostrarToast("⚠️ Selecciona un colaborador en cada fila o elimina la fila vacía.", "warn");
+    return;
+  }
+
+  const startTs = _pedidoPendiente.startTimestamp;
+  _pedidoPendiente.tieneEquipo = true;
+  // Auxiliares asignados al inicio comparten el mismo timestamp de inicio del pedido
+  _pedidoPendiente.auxiliares  = auxiliares.map(nombre => ({ nombre, joinedAt: startTs }));
+
+  cerrarModalEquipo();
+  _crearPedidoFinal(_pedidoPendiente);
+
+  const total = auxiliares.length + 1;
+  mostrarToast(`👥 Equipo de ${total} personas asignado a #${_pedidoPendiente.codigo}`, "team");
+  _pedidoPendiente = null;
+}
+
+function cerrarModalEquipo() {
+  document.getElementById("modal-equipo-overlay").classList.remove("open");
+}
+
+// ============================================================
+//  MODAL AUXILIAR — agregar a pedido existente
+// ============================================================
+let _auxTargetIndex = null;
+
+function abrirModalAux(index) {
+  _auxTargetIndex = index;
+  const data = pausedTimers[index];
+  if (!data) return;
+
+  document.getElementById("aux-subtitle").textContent =
+    `Pedido #${data.codigo} — ${data.sacador}`;
+
+  // Filtrar sacadores ya en el equipo
+  const yaAsignados = [
+    data.liderId || data.sacador,
+    ...(data.auxiliares || []).map(a => typeof a === "string" ? a : a.nombre)
+  ];
+  const auxSelect   = document.getElementById("aux-select");
+  auxSelect.innerHTML = '<option value="">-- Selecciona un colaborador --</option>';
+
+  TODOS_LOS_SACADORES
+    .filter(s => !yaAsignados.includes(s))
+    .forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s;
+      auxSelect.appendChild(opt);
+    });
+
+  const errorEl = document.getElementById("aux-error");
+  if (errorEl) errorEl.classList.remove("visible");
+
+  document.getElementById("modal-aux-overlay").classList.add("open");
+  setTimeout(() => auxSelect.focus(), 100);
+}
+
+function cerrarModalAux() {
+  document.getElementById("modal-aux-overlay").classList.remove("open");
+  _auxTargetIndex = null;
+}
+
+function confirmarAgregarAux() {
+  const select   = document.getElementById("aux-select");
+  const errorEl  = document.getElementById("aux-error");
+  const nuevoAux = select.value;
+
+  if (!nuevoAux) {
+    errorEl.classList.add("visible");
+    select.focus();
+    return;
+  }
+
+  const data = pausedTimers[_auxTargetIndex];
+  if (!data) { cerrarModalAux(); return; }
+
+  if (!data.auxiliares) data.auxiliares = [];
+  if (!data.tieneEquipo) data.tieneEquipo = true;
+  if (!data.liderId) data.liderId = data.sacador;
+
+  // ── NUEVO: guardar timestamp exacto de cuando se unió ──
+  const joinedAt = Date.now();
+  data.auxiliares.push({ nombre: nuevoAux, joinedAt });
+
+  cerrarModalAux();
+  _actualizarSeccionEquipo(_auxTargetIndex);
+  guardarPedidos();
+
+  mostrarToast(`👥 ${nuevoAux.split(" ")[0]} se unió al equipo de #${data.codigo} — ${formatearFecha(joinedAt)}`, "team");
+}
+
+// ============================================================
+//  RENDERIZAR SECCIÓN DE EQUIPO EN LA TARJETA
+// ============================================================
+function _actualizarSeccionEquipo(index) {
+  const data = pausedTimers[index];
+  if (!data) return;
+
+  const card = document.getElementById(`card-${index}`);
+  if (!card) return;
+
+  // Actualizar clase visual de la tarjeta
+  if (data.tieneEquipo && (data.auxiliares || []).length > 0) {
+    card.classList.add("en-equipo");
+  }
+
+  let teamSection = document.getElementById(`team-section-${index}`);
+  const lider = data.liderId || data.sacador;
+  const auxiliares = data.auxiliares || [];
+
+  // ── ACTUALIZADO: mostrar fecha/hora de unión de cada auxiliar ──
+  const miembrosHTML = auxiliares.map(a => {
+    const nombre   = typeof a === "string" ? a : a.nombre;
+    const joined   = (typeof a === "object" && a.joinedAt)
+      ? `<span class="member-joined">Se unió: ${formatearFecha(a.joinedAt)}</span>`
+      : "";
+    return `
+      <div class="task-team-member">
+        <span class="member-role auxiliar">Aux</span>
+        <div class="member-info">
+          <span>${nombre}</span>
+          ${joined}
+        </div>
+      </div>`;
+  }).join("");
+
+  const btnAuxLabel = auxiliares.length === 0 ? "+ Agregar auxiliar" : "+ Añadir otro auxiliar";
+
+  const innerHTML = `
+    <div class="task-team-title">👥 Equipo</div>
+    <div class="task-team-member">
+      <span class="member-role lider">👑 Líder</span>
+      <div class="member-info">
+        <span>${lider}</span>
+        <span class="member-joined">Inicio: ${formatearFecha(data.startTimestamp)}</span>
+      </div>
+    </div>
+    ${miembrosHTML}
+    ${!data.finalizado ? `<button class="btn-add-aux" onclick="abrirModalAux(${index})">${btnAuxLabel}</button>` : ""}
+  `;
+
+  if (teamSection) {
+    teamSection.innerHTML = innerHTML;
+  } else {
+    teamSection = document.createElement("div");
+    teamSection.className = "task-team";
+    teamSection.id = `team-section-${index}`;
+    teamSection.innerHTML = innerHTML;
+
+    // Insertar antes de task-times
+    const timesEl = document.getElementById(`times-wrap-${index}`);
+    if (timesEl) {
+      card.insertBefore(teamSection, timesEl);
+    } else {
+      const metaEl = card.querySelector(".task-meta");
+      if (metaEl && metaEl.nextSibling) {
+        card.insertBefore(teamSection, metaEl.nextSibling);
+      } else {
+        card.appendChild(teamSection);
+      }
+    }
+  }
+}
+
+// ============================================================
 //  CREAR TARJETA
 // ============================================================
 function crearTarjeta(pedido) {
-  const { index, codigo, sacador, cantidad, startTimestamp } = pedido;
+  const { index, codigo, sacador, cantidad, startTimestamp, tieneEquipo } = pedido;
 
   const task = document.createElement("div");
   task.className = "task";
   task.id = `card-${index}`;
   task.dataset.codigo  = codigo.toLowerCase();
   task.dataset.sacador = sacador.toLowerCase();
+
+  if (tieneEquipo && (pedido.auxiliares || []).length > 0) {
+    task.classList.add("en-equipo");
+  }
 
   task.innerHTML = `
     <div class="task-header">
@@ -322,7 +615,7 @@ function crearTarjeta(pedido) {
       <span class="meta-item">📦 <strong>${cantidad}</strong> productos</span>
       <span class="badge-pausa" id="badge-pausa-${index}" style="display:none;"></span>
     </div>
-    <div class="task-times">
+    <div id="times-wrap-${index}" class="task-times">
       <div class="time-row">
         <span class="time-label">Inicio</span>
         <span class="time-value" id="start-${index}">${formatearFecha(startTimestamp)}</span>
@@ -344,13 +637,38 @@ function crearTarjeta(pedido) {
   `;
 
   taskList.appendChild(task);
+
+  // Si el pedido ya tiene equipo (p.ej. al reconstruir desde localStorage), renderizar sección
+  if (tieneEquipo || (pedido.auxiliares && pedido.auxiliares.length > 0)) {
+    _actualizarSeccionEquipo(index);
+  } else if (!pedido.finalizado) {
+    // Mostrar botón de "agregar auxiliar" en todos los pedidos activos
+    _agregarBtnAuxSuelto(index);
+  }
+}
+
+// Botón auxiliar suelto para pedidos sin equipo aún
+function _agregarBtnAuxSuelto(index) {
+  const data = pausedTimers[index];
+  if (!data || data.finalizado) return;
+  const card = document.getElementById(`card-${index}`);
+  if (!card || card.querySelector(".btn-add-aux")) return;
+
+  const btn = document.createElement("button");
+  btn.className = "btn-add-aux";
+  btn.textContent = "+ Agregar auxiliar";
+  btn.onclick = () => abrirModalAux(index);
+
+  // Insertarlo antes de task-actions
+  const actionsEl = card.querySelector(".task-actions");
+  if (actionsEl) card.insertBefore(btn, actionsEl);
 }
 
 // ============================================================
-//  MODAL DE FINALIZAR — 3 pasos
+//  MODAL DE FINALIZAR — 4 pasos
 // ============================================================
-let modalIndex    = null;
-let modalStep     = 1;
+let modalIndex      = null;
+let modalStep       = 1;
 let modalRespuestas = {};
 
 function abrirModalFinalizar(index) {
@@ -391,10 +709,10 @@ function renderModalStep(step) {
   document.getElementById("modal-title").textContent    = titles[step];
   document.getElementById("modal-subtitle").textContent = subtitles[step];
 
-  const dots = document.querySelectorAll(".modal-step-dot");
+  const dots = document.querySelectorAll("#modal .modal-step-dot");
   dots.forEach((dot, i) => {
     dot.classList.remove("active", "done");
-    if (i + 1 < step)       dot.classList.add("done");
+    if (i + 1 < step)        dot.classList.add("done");
     else if (i + 1 === step) dot.classList.add("active");
   });
 
@@ -437,15 +755,22 @@ function renderModalStep(step) {
     }
 
   } else {
-    const now      = new Date();
-    const elapsedMs = calcularElapsedMs(data, now.getTime());
+    const now        = new Date();
+    const elapsedMs  = calcularElapsedMs(data, now.getTime());
     const elapsedSeg = Math.floor(elapsedMs / 1000);
     const cantidadSacada = modalRespuestas.cantidad;
-    const porcentaje = Math.round((cantidadSacada / data.cantidad) * 100);
+    const porcentaje     = Math.round((cantidadSacada / data.cantidad) * 100);
     let tpp = "—";
-    if (cantidadSacada > 0) {
-      tpp = formatTime(Math.floor(elapsedSeg / cantidadSacada));
-    }
+    if (cantidadSacada > 0) tpp = formatTime(Math.floor(elapsedSeg / cantidadSacada));
+
+    const equipoRow = data.tieneEquipo && data.auxiliares && data.auxiliares.length > 0
+      ? `<div class="summary-row">
+           <span class="summary-key">Equipo</span>
+           <span class="summary-val" style="color:var(--team);font-size:12px;">
+             ${[data.liderId || data.sacador, ...data.auxiliares.map(a => typeof a === "string" ? a : a.nombre)].join(", ")}
+           </span>
+         </div>`
+      : "";
 
     body.innerHTML = `
       <div class="modal-summary">
@@ -457,6 +782,7 @@ function renderModalStep(step) {
           <span class="summary-key">Sacador</span>
           <span class="summary-val">${data.sacador.split(" ").slice(0,2).join(" ")}</span>
         </div>
+        ${equipoRow}
         <div class="summary-row">
           <span class="summary-key">Productos sacados</span>
           <span class="summary-val">${cantidadSacada} / ${data.cantidad} (${porcentaje}%)</span>
@@ -492,31 +818,24 @@ function modalSiguiente() {
   const errorEl  = document.getElementById("modal-error");
   const data     = pausedTimers[modalIndex];
   const val      = parseFloat(input.value);
-
-  let valido = true;
+  let valido     = true;
   let mensajeError = "Valor inválido, intenta de nuevo.";
 
   if (modalStep === 1) {
     if (isNaN(val) || val < 0 || val > data.cantidad || !Number.isInteger(val)) {
       valido = false;
       mensajeError = `Ingresa un número entre 0 y ${data.cantidad}.`;
-    } else {
-      modalRespuestas.cantidad = val;
-    }
+    } else { modalRespuestas.cantidad = val; }
   } else if (modalStep === 2) {
     if (isNaN(val) || val < 0 || !Number.isInteger(val)) {
       valido = false;
       mensajeError = "Ingresa un número entero positivo.";
-    } else {
-      modalRespuestas.bultos = val;
-    }
+    } else { modalRespuestas.bultos = val; }
   } else if (modalStep === 3) {
     if (isNaN(val) || val < 0) {
       valido = false;
       mensajeError = "Ingresa un monto válido mayor o igual a 0.";
-    } else {
-      modalRespuestas.monto = val;
-    }
+    } else { modalRespuestas.monto = val; }
   }
 
   if (!valido) {
@@ -559,8 +878,8 @@ function confirmarFinalizar() {
     data.pausedAt = null;
   }
 
-  const elapsedMs  = calcularElapsedMs(data, now.getTime());
-  const elapsedSeg = Math.floor(elapsedMs / 1000);
+  const elapsedMs      = calcularElapsedMs(data, now.getTime());
+  const elapsedSeg     = Math.floor(elapsedMs / 1000);
   const cantidadSacada = modalRespuestas.cantidad;
   const bultos         = modalRespuestas.bultos;
   const montoTotal     = parseFloat(modalRespuestas.monto);
@@ -573,16 +892,16 @@ function confirmarFinalizar() {
     tiempoFormateado = formatTime(Math.floor(tiempoPorProductoSeg));
   }
 
-  data.finalizado       = true;
-  data.endTimestamp     = now.getTime();
+  data.finalizado        = true;
+  data.endTimestamp      = now.getTime();
   data.tiempoPorProducto = tiempoFormateado;
-  data.elapsedMsFinal   = elapsedMs;
+  data.elapsedMsFinal    = elapsedMs;
 
   clearInterval(timers[modalIndex]);
   delete timers[modalIndex];
 
   const index = modalIndex;
-  const card    = document.getElementById(`card-${index}`);
+  const card  = document.getElementById(`card-${index}`);
   if (card) card.classList.add("finalizado");
 
   const endEl   = document.getElementById(`end-${index}`);
@@ -598,14 +917,50 @@ function confirmarFinalizar() {
   if (tppEl)   tppEl.textContent = tiempoFormateado;
   if (badgeEl) badgeEl.style.display = "none";
 
+  // Actualizar sección equipo (quitar btn de agregar)
+  const teamSection = document.getElementById(`team-section-${index}`);
+  if (teamSection) {
+    const btnAux = teamSection.querySelector(".btn-add-aux");
+    if (btnAux) btnAux.remove();
+  }
+
+  // Quitar también el botón suelto si existe fuera de la sección equipo
+  const btnAuxSuelto = card ? card.querySelector(".btn-add-aux") : null;
+  if (btnAuxSuelto) btnAuxSuelto.remove();
+
   guardarPedidos();
   actualizarStats();
 
+  const equipoStr = data.tieneEquipo && data.auxiliares && data.auxiliares.length > 0
+    ? ` | Equipo: ${data.auxiliares.length + 1} personas`
+    : "";
+
   mostrarToast(
-    `✅ ${data.sacador.split(" ")[0]} — ${porcentaje}% | ${tiempoFormateado}/prod | ${bultos} bultos | RD$ ${montoTotal.toFixed(2)}`,
+    `✅ ${data.sacador.split(" ")[0]} — ${porcentaje}% | ${tiempoFormateado}/prod | ${bultos} bultos | RD$ ${montoTotal.toFixed(2)}${equipoStr}`,
     "success"
   );
 
+  const auxList = (data.auxiliares || []);
+  const endTs   = data.endTimestamp;
+
+  // Construir string de equipo completo
+  const equipoCompleto = data.tieneEquipo && auxList.length > 0
+    ? [data.liderId || data.sacador, ...auxList.map(a => typeof a === "string" ? a : a.nombre)].join(", ")
+    : data.sacador;
+
+  // ── ACTUALIZADO: calcular tiempo trabajado individual por cada auxiliar ──
+  const auxDetalles = auxList.map(a => {
+    const nombre   = typeof a === "string" ? a : a.nombre;
+    // joinedAt: cuando se incorporó. Si era del equipo inicial, es igual al startTimestamp del pedido.
+    const joinedAt = (typeof a === "object" && a.joinedAt) ? a.joinedAt : data.startTimestamp;
+    const tiempoAuxMs  = endTs - joinedAt;
+    const tiempoAuxSeg = Math.max(0, Math.floor(tiempoAuxMs / 1000));
+    let   tppAux       = "00:00:00";
+    if (cantidadSacada > 0) tppAux = formatTime(Math.floor(tiempoAuxSeg / cantidadSacada));
+    return { nombre, joinedAt, tiempoAuxSeg, tppAux };
+  });
+
+  // ── Registro principal: el LÍDER ──
   fetch(API_HOJA_HISTORIAL, {
     method: "POST",
     mode: "cors",
@@ -613,24 +968,53 @@ function confirmarFinalizar() {
     body: JSON.stringify({
       "Codigo P":                  data.codigo,
       "Sacador":                   data.sacador,
+      "Rol":                       "Lider",
+      "Equipo":                    equipoCompleto,
       "CantidadProductos ":        data.cantidad,
       "HoraInicio ":               formatDateTime(new Date(data.startTimestamp)),
-      "HoraFin ":                  formatDateTime(new Date(data.endTimestamp)),
+      "HoraFin ":                  formatDateTime(new Date(endTs)),
       "TiempoTotal ":              formatTime(elapsedSeg),
       "TiempoPorProductoSegundos": tiempoPorProductoSeg.toFixed(2),
       "TiempoPorProducto":         tiempoFormateado,
       "Bultos":                    bultos,
       "MontoFinal":                montoTotal.toFixed(2)
     })
-  }).catch(err => console.error("❌ Error al enviar historial:", err));
+  }).catch(err => console.error("❌ Error al enviar historial (líder):", err));
 
+  // ── Un registro por cada AUXILIAR con su tiempo real trabajado ──
+  auxDetalles.forEach(aux => {
+    fetch(API_HOJA_HISTORIAL, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        "Codigo P":                  data.codigo,
+        "Sacador":                   aux.nombre,
+        "Rol":                       "Auxiliar",
+        "Equipo":                    equipoCompleto,
+        "CantidadProductos ":        data.cantidad,
+        "HoraInicio ":               formatDateTime(new Date(aux.joinedAt)),
+        "HoraFin ":                  formatDateTime(new Date(endTs)),
+        "TiempoTotal ":              formatTime(aux.tiempoAuxSeg),
+        "TiempoPorProductoSegundos": cantidadSacada > 0
+                                       ? (aux.tiempoAuxSeg / cantidadSacada).toFixed(2)
+                                       : "0.00",
+        "TiempoPorProducto":         aux.tppAux,
+        "Bultos":                    bultos,
+        "MontoFinal":                montoTotal.toFixed(2)
+      })
+    }).catch(err => console.error(`❌ Error al enviar historial (aux ${aux.nombre}):`, err));
+  });
+
+  // ── Actualizar estatus en la hoja de proceso ──
   fetch(`${API_HOJA_PROCESO}/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
     method: "PATCH",
     mode: "cors",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       CantidadProductos: data.cantidad,
-      HoraFin:           formatDateTime(new Date(data.endTimestamp)),
+      Equipo:            equipoCompleto,
+      HoraFin:           formatDateTime(new Date(endTs)),
       Estatus:           "Finalizado"
     })
   }).catch(err => console.error("❌ Error al actualizar Sheet externo:", err));
@@ -644,11 +1028,11 @@ function aplicarFiltro() {
   const sacadorFiltro = (document.getElementById("filtro-sacador")?.value || "").toLowerCase();
 
   let visibles = 0;
+  const total  = Object.keys(pausedTimers).length;
+
   document.querySelectorAll(".task").forEach(card => {
     const matchCodigo  = card.dataset.codigo?.includes(textoBusqueda) ?? true;
-    const matchSacador = sacadorFiltro
-      ? card.dataset.sacador?.includes(sacadorFiltro)
-      : true;
+    const matchSacador = sacadorFiltro ? card.dataset.sacador?.includes(sacadorFiltro) : true;
     const visible = matchCodigo && matchSacador;
     card.style.display = visible ? "" : "none";
     if (visible) visibles++;
@@ -656,7 +1040,6 @@ function aplicarFiltro() {
 
   const countEl = document.getElementById("filter-count");
   if (countEl) {
-    const total = Object.keys(pausedTimers).length;
     countEl.textContent = textoBusqueda || sacadorFiltro
       ? `${visibles} de ${total}`
       : `${total} pedidos`;
@@ -705,16 +1088,14 @@ function eliminarTodos() {
 }
 
 // ============================================================
-//  PERSISTENCIA — CORREGIDA
+//  PERSISTENCIA
 // ============================================================
 function guardarPedidos() {
   const ahora = Date.now();
   for (let i in pausedTimers) {
     const d = pausedTimers[i];
     if (!d.finalizado) {
-      // Guardamos cuánto tiempo lleva el cronómetro en este momento
       d.elapsedSnapshot = calcularElapsedMs(d, ahora);
-      // Guardamos la marca de tiempo exacta en que se hizo el snapshot
       d.savedAt = ahora;
     }
   }
@@ -725,34 +1106,40 @@ function reconstruirPedido(pedido) {
   const index = pedido.index;
 
   if (!pedido.finalizado) {
-    const ahora = Date.now();
+    const ahora      = Date.now();
     const snapshotMs = pedido.elapsedSnapshot || 0;
 
     if (!pedido.paused) {
-      // ── Pedido activo ──
-      // Calculamos cuánto tiempo adicional pasó mientras la página estuvo cerrada
       const tiempoCerradoMs = pedido.savedAt ? (ahora - pedido.savedAt) : 0;
-      // Reposicionamos el inicio para que el cronómetro continúe correctamente
       pedido.startTimestamp = ahora - snapshotMs - tiempoCerradoMs;
       pedido.pausedDuration = 0;
     } else {
-      // ── Pedido pausado ──
-      // El tiempo pausado no avanza; solo restauramos el estado tal cual estaba
       pedido.startTimestamp = ahora - snapshotMs - (pedido.pausedDuration || 0);
-      pedido.pausedAt = ahora; // Actualizamos la marca de pausa al momento actual
+      pedido.pausedAt       = ahora;
     }
   }
+
+  // Compatibilidad con pedidos guardados antes de la actualización
+  if (!pedido.auxiliares)  pedido.auxiliares  = [];
+  if (!pedido.liderId)     pedido.liderId     = pedido.sacador;
+  if (pedido.tieneEquipo === undefined) pedido.tieneEquipo = false;
+
+  // Compatibilidad: convertir auxiliares en formato string (antiguo) a objeto {nombre, joinedAt}
+  pedido.auxiliares = pedido.auxiliares.map(a => {
+    if (typeof a === "string") return { nombre: a, joinedAt: pedido.startTimestamp };
+    return a;
+  });
 
   pausedTimers[index] = pedido;
   crearTarjeta(pedido);
 
   if (pedido.finalizado) {
-    const card = document.getElementById(`card-${index}`);
-    if (card) card.classList.add("finalizado");
+    const card    = document.getElementById(`card-${index}`);
     const tppWrap = document.getElementById(`tpp-wrap-${index}`);
     const tppEl   = document.getElementById(`tpp-${index}`);
     const timerEl = document.getElementById(`timer-${index}`);
     const endEl   = document.getElementById(`end-${index}`);
+    if (card)    card.classList.add("finalizado");
     if (tppWrap) tppWrap.style.display = "block";
     if (tppEl && pedido.tiempoPorProducto) tppEl.textContent = pedido.tiempoPorProducto;
     if (timerEl) timerEl.textContent = formatTime(Math.floor((pedido.elapsedMsFinal || 0) / 1000));
