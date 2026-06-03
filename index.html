@@ -115,13 +115,11 @@
 </div><!-- /main-container -->
 
 <!-- ============================================================
-     MODAL FINALIZAR
+     MODAL FINALIZAR (multi-paso)
 ============================================================ -->
 <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
   <div class="modal" id="modal">
-
     <div class="modal-header">
-      <!-- Indicador de pasos -->
       <div class="modal-step-indicator">
         <div class="modal-step-dot active"></div>
         <div class="modal-step-dot"></div>
@@ -131,23 +129,78 @@
       <div class="modal-title" id="modal-title"></div>
       <div class="modal-subtitle" id="modal-subtitle"></div>
     </div>
-
     <div class="modal-body" id="modal-body"></div>
-
     <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
 
+<!-- ============================================================
+     MODAL EQUIPO — se activa cuando cantidad > umbral
+============================================================ -->
+<div class="modal-overlay" id="modal-equipo-overlay" onclick="handleEquipoOverlayClick(event)">
+  <div class="modal modal-equipo" id="modal-equipo">
+    <div class="modal-equipo-icon">👥</div>
+    <div class="modal-title" id="equipo-title">Pedido de alto volumen</div>
+    <div class="modal-subtitle" id="equipo-subtitle"></div>
+
+    <div class="modal-body" id="equipo-body"></div>
+    <div class="modal-footer" id="equipo-footer"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL AGREGAR AUXILIAR (desde la tarjeta)
+============================================================ -->
+<div class="modal-overlay" id="modal-aux-overlay" onclick="handleAuxOverlayClick(event)">
+  <div class="modal" id="modal-aux">
+    <div class="modal-header">
+      <div class="modal-title">Agregar auxiliar al pedido</div>
+      <div class="modal-subtitle" id="aux-subtitle"></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field">
+        <label>Selecciona el auxiliar</label>
+        <select id="aux-select" style="width:100%;min-width:unset;">
+          <option value="">-- Selecciona un colaborador --</option>
+          <option value="Omar Marmolejos Fajardo">Omar Marmolejos Fajardo</option>
+          <option value="Jairo Fernandez Salcedo">Jairo Fernandez Salcedo</option>
+          <option value="Ismael Augusto Veras Lasuse">Ismael Augusto Veras Lasuse</option>
+          <option value="Fernando Antonio Burgos Cabrera">Fernando Antonio Burgos Cabrera</option>
+          <option value="Juan De Jesús Peña Pérez">Juan De Jesús Peña Pérez</option>
+          <option value="Luis David Nuñez Santos">Luis David Nuñez Santos</option>
+          <option value="Yustin Alexander Mendez">Yustin Alexander Mendez</option>
+          <option value="Luis Eduardo Reyes">Luis Eduardo Reyes</option>
+          <option value="Omelbe Gomez Valdez">Omelbe Gomez Valdez</option>
+          <option value="Bryhan Santo Cordero">Bryhan Santo Cordero</option>
+          <option value="Enrique Nuñez Brito">Enrique Nuñez Brito</option>
+          <option value="Cirilo Reynoso Acevedo">Cirilo Reynoso Acevedo</option>
+          <option value="Yan Carlos Cruz Paulino">Yan Carlos Cruz Paulino</option>
+          <option value="Wilkin Ortega Diaz">Wilkin Ortega Diaz</option>
+        </select>
+      </div>
+      <p class="modal-hint" id="aux-hint">El colaborador seleccionado se añadirá como auxiliar.</p>
+      <p class="modal-hint error-msg" id="aux-error">Selecciona un colaborador válido.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn secondary" onclick="cerrarModalAux()">Cancelar</button>
+      <button class="modal-btn primary" onclick="confirmarAgregarAux()">Agregar auxiliar</button>
+    </div>
   </div>
 </div>
 
 <script src="script.js"></script>
 
 <script>
-  // Cerrar modal al hacer clic en el overlay (fuera del modal)
   function handleOverlayClick(e) {
     if (e.target === document.getElementById("modal-overlay")) cerrarModal();
   }
+  function handleEquipoOverlayClick(e) {
+    if (e.target === document.getElementById("modal-equipo-overlay")) cerrarModalEquipo();
+  }
+  function handleAuxOverlayClick(e) {
+    if (e.target === document.getElementById("modal-aux-overlay")) cerrarModalAux();
+  }
 
-  // Enter en inputs del formulario principal
   document.addEventListener("DOMContentLoaded", () => {
     ["codigo", "sacador", "cantidad"].forEach(id => {
       document.getElementById(id).addEventListener("keydown", e => {
@@ -155,9 +208,12 @@
       });
     });
 
-    // Cerrar modal con Escape
     document.addEventListener("keydown", e => {
-      if (e.key === "Escape") cerrarModal();
+      if (e.key === "Escape") {
+        cerrarModal();
+        cerrarModalEquipo();
+        cerrarModalAux();
+      }
     });
   });
 </script>
