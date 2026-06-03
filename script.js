@@ -4,21 +4,34 @@
 const API_HOJA_PROCESO   = "https://api.sheetbest.com/sheets/7793c015-368c-456b-a175-0fc6cc94821f";
 const API_HOJA_HISTORIAL = "https://api.sheetbest.com/sheets/cce35084-ee62-4934-b2ed-eb5fcd2d414b";
 
-// ── Umbral de referencias para sugerir equipo ──────────────
-const UMBRAL_EQUIPO = 100; // Cambia este valor según tu criterio
+const UMBRAL_EQUIPO = 100;
 
 let taskList     = document.getElementById("task-list");
 let timers       = {};
 let pausedTimers = {};
 
 // ============================================================
-//  HORARIOS
+//  HORARIOS LABORABLES
+//  Toda la lógica de "¿este segundo cuenta como tiempo trabajado?"
+//  vive aquí. Editar sólo esta sección para cambiar horarios.
 // ============================================================
-const dayPausas = {
-  1: "18:00:00", 2: "18:00:00", 3: "18:00:00",
-  4: "18:00:00", 5: "17:00:00", 6: "12:00:00"
+
+// Hora de ENTRADA general (todos los días laborables)
+const HORA_ENTRADA = "08:00:00";
+
+// Hora de SALIDA general por día de la semana (0=Dom, 1=Lun … 6=Sáb)
+// Domingo (0) no existe porque es no-laborable.
+// Sábado (6): sale a las 12:00 y NO vuelve hasta el lunes.
+const HORA_SALIDA_DIA = {
+  1: "18:00:00",
+  2: "18:00:00",
+  3: "18:00:00",
+  4: "18:00:00",
+  5: "17:00:00",
+  6: "12:00:00"
 };
 
+// Pausa de almuerzo individual  { pausa, reanuda }
 const INDIVIDUAL_PAUSES = {
   "Omar Marmolejos Fajardo":          { pausa: "13:00:00", reanuda: "14:00:00" },
   "Jairo Fernandez Salcedo":          { pausa: "13:00:00", reanuda: "14:00:00" },
@@ -36,7 +49,8 @@ const INDIVIDUAL_PAUSES = {
   "Wilkin Ortega Diaz":               { pausa: "13:00:00", reanuda: "14:00:00" }
 };
 
-const HORAS_SALIDA = {
+// Hora de salida ANTICIPADA para algunos sacadores (salen antes que el resto)
+const HORAS_SALIDA_ANTICIPADA = {
   "Omar Marmolejos Fajardo":         "18:00:00",
   "Jairo Fernandez Salcedo":         "18:00:00",
   "Ismael Augusto Veras Lasuse":     "18:00:00",
@@ -60,6 +74,149 @@ const TODOS_LOS_SACADORES = [
   "Yan Carlos Cruz Paulino",
   "Wilkin Ortega Diaz"
 ];
+
+// ============================================================
+//  MOTOR DE TIEMPO LABORABLE
+//  calcularMsLaborables(sacador, desdeMs, hastaMs)
+//
+//  Devuelve los milisegundos que caen dentro del horario laboral
+//  del sacador entre dos timestamps absolutos.
+//
+//  Algoritmo:
+//    1. Divide el rango en segmentos de 1 segundo.
+//    2. Por cada segundo comprueba si ese instante es laborable
+//       usando esMomentoLaborable().
+//    3. Suma los segundos que lo son y convierte a ms.
+//
+//  Para rangos muy largos (p.ej. pedido que lleva días abierto)
+//  la función primero avanza en bloques de DÍA completo para
+//  sumar las horas laborables diarias en O(días) en vez de O(segundos),
+//  y sólo itera segundo a segundo dentro del día inicial y final
+//  parciales. Esto mantiene el rendimiento incluso tras un fin de semana.
+// ============================================================
+
+/**
+ * Convierte "HH:MM:SS" a segundos desde medianoche.
+ */
+function hhmmssASeg(str) {
+  const [h, m, s] = str.split(":").map(Number);
+  return h * 3600 + m * 60 + (s || 0);
+}
+
+/**
+ * Dado un Date y un sacador, devuelve los rangos [inicioSeg, finSeg]
+ * (en segundos desde medianoche) en que ese sacador trabaja ese día.
+ * Puede haber 0, 1 o 2 rangos (antes y después del almuerzo).
+ * Domingo → siempre vacío.
+ * Sábado  → solo hasta las 12:00.
+ */
+function getRangosLaboralesDia(fecha, sacador) {
+  const dia = fecha.getDay(); // 0=Dom … 6=Sáb
+  if (dia === 0) return [];   // Domingo: no laborable
+
+  const salidaDiaStr = HORA_SALIDA_DIA[dia];
+  if (!salidaDiaStr) return []; // seguridad
+
+  const entrada   = hhmmssASeg(HORA_ENTRADA);
+  let   salidaDia = hhmmssASeg(salidaDiaStr);
+
+  // Salida anticipada personal (sólo si es menor que la general del día)
+  if (HORAS_SALIDA_ANTICIPADA[sacador]) {
+    const salidaAntic = hhmmssASeg(HORAS_SALIDA_ANTICIPADA[sacador]);
+    if (salidaAntic < salidaDia) salidaDia = salidaAntic;
+  }
+
+  // Sin pausa de almuerzo → un solo rango
+  if (!INDIVIDUAL_PAUSES[sacador]) {
+    return [[entrada, salidaDia]];
+  }
+
+  const pausaInicio = hhmmssASeg(INDIVIDUAL_PAUSES[sacador].pausa);
+  const pausaFin    = hhmmssASeg(INDIVIDUAL_PAUSES[sacador].reanuda);
+
+  const rangos = [];
+  if (entrada < pausaInicio) rangos.push([entrada, pausaInicio]);
+  if (pausaFin < salidaDia)  rangos.push([pausaFin, salidaDia]);
+  return rangos;
+}
+
+/**
+ * Devuelve los segundos laborables totales de un día completo
+ * para un sacador dado.
+ */
+function segLaboralesDia(fecha, sacador) {
+  return getRangosLaboralesDia(fecha, sacador)
+    .reduce((acc, [a, b]) => acc + Math.max(0, b - a), 0);
+}
+
+/**
+ * Devuelve los segundos laborables entre dos timestamps (ms).
+ * Eficiente: itera día a día en vez de segundo a segundo para
+ * los días completos intermedios.
+ */
+function calcularSegLaborables(sacador, desdeMs, hastaMs) {
+  if (hastaMs <= desdeMs) return 0;
+
+  let total = 0;
+  const desde = new Date(desdeMs);
+  const hasta = new Date(hastaMs);
+
+  // ── Inicio del primer día (medianoche) ──
+  const inicioDia = new Date(desde);
+  inicioDia.setHours(0, 0, 0, 0);
+
+  let cursor = new Date(inicioDia);
+
+  while (cursor < hasta) {
+    const finDia = new Date(cursor);
+    finDia.setHours(23, 59, 59, 999);
+
+    // Límite real de este día: el menor entre finDia y hastaMs
+    const limSup = finDia < hasta ? finDia : hasta;
+    // Límite inferior real: el mayor entre cursor (00:00) y desde
+    const limInf = cursor < desde ? desde : cursor;
+
+    const rangos = getRangosLaboralesDia(cursor, sacador);
+
+    for (const [rInicio, rFin] of rangos) {
+      // Convertir rangos de ese día a timestamps absolutos
+      const rInicioMs = new Date(cursor).setHours(
+        Math.floor(rInicio / 3600),
+        Math.floor((rInicio % 3600) / 60),
+        rInicio % 60, 0
+      );
+      const rFinMs = new Date(cursor).setHours(
+        Math.floor(rFin / 3600),
+        Math.floor((rFin % 3600) / 60),
+        rFin % 60, 0
+      );
+
+      // Intersección del rango laboral con [limInf, limSup]
+      const solapInicio = Math.max(rInicioMs, limInf.getTime());
+      const solapFin    = Math.min(rFinMs,    limSup.getTime());
+
+      if (solapFin > solapInicio) {
+        total += Math.floor((solapFin - solapInicio) / 1000);
+      }
+    }
+
+    // Avanzar al día siguiente (00:00:00)
+    cursor.setDate(cursor.getDate() + 1);
+    cursor.setHours(0, 0, 0, 0);
+  }
+
+  return total;
+}
+
+/**
+ * Comprueba si un instante (ms) es laborable para el sacador.
+ * Usado sólo para el badge de "próxima pausa".
+ */
+function esMomentoLaborable(sacador, tsMs) {
+  const d   = new Date(tsMs);
+  const seg = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+  return getRangosLaboralesDia(d, sacador).some(([a, b]) => seg >= a && seg < b);
+}
 
 // ============================================================
 //  UTILIDADES DE FORMATO
@@ -90,18 +247,58 @@ window.formatDateTime = formatDateTime;
 window.formatTime     = formatTime;
 
 // ============================================================
-//  CÁLCULO DE ELAPSED
+//  CÁLCULO DE ELAPSED — ahora basado en horas laborables
+//
+//  El pedido lleva un array "segmentos" con los tramos en que
+//  estuvo ACTIVO (no pausado). Cada segmento: { inicio, fin? }
+//  fin=null significa que sigue corriendo ahora mismo.
+//
+//  calcularElapsedMs suma los segundos laborables de cada segmento
+//  y los convierte a ms para mantener compatibilidad con el resto
+//  del código que espera milisegundos.
 // ============================================================
+
+/**
+ * Devuelve los ms de tiempo LABORABLE acumulados del pedido.
+ * Si el pedido está finalizado, usa elapsedMsFinal (precalculado).
+ */
 function calcularElapsedMs(data, nowMs) {
   if (data.finalizado) return data.elapsedMsFinal || 0;
-  let base = data.paused
-    ? (data.pausedAt || nowMs) - data.startTimestamp
-    : nowMs - data.startTimestamp;
-  return Math.max(0, base - (data.pausedDuration || 0));
+
+  // Compatibilidad con pedidos guardados con el esquema antiguo
+  // (sin array segmentos): construir un segmento sintético.
+  if (!data.segmentos || data.segmentos.length === 0) {
+    _migrarASegmentos(data, nowMs);
+  }
+
+  let totalSeg = 0;
+  for (const seg of data.segmentos) {
+    const fin = seg.fin !== null ? seg.fin : nowMs;
+    totalSeg += calcularSegLaborables(data.sacador, seg.inicio, fin);
+  }
+  return totalSeg * 1000;
+}
+
+/**
+ * Migración on-the-fly: convierte un pedido en esquema antiguo
+ * (startTimestamp + pausedDuration) al nuevo esquema de segmentos.
+ * Solo se llama una vez; después el pedido ya tiene segmentos.
+ */
+function _migrarASegmentos(data, nowMs) {
+  // Construimos un único segmento que cubre desde el inicio real
+  // hasta ahora (o hasta pausedAt si está pausado).
+  // No intentamos reconstruir las micro-pausas pasadas; simplemente
+  // arrancamos desde startTimestamp ignorando pausedDuration antigua.
+  const inicio = data.startTimestamp || (nowMs - (data.elapsedSnapshot || 0));
+  const fin    = data.paused ? (data.pausedAt || nowMs) : null;
+  data.segmentos = [{ inicio, fin }];
+  // Limpiar campos del esquema viejo para no confundir
+  data.pausedDuration = 0;
+  data.pausedAt       = data.paused ? (data.pausedAt || nowMs) : null;
 }
 
 // ============================================================
-//  TIMER
+//  TIMER — ahora actualiza en base a tiempo laborable
 // ============================================================
 function iniciarTimer(index) {
   if (timers[index]) clearInterval(timers[index]);
@@ -134,21 +331,33 @@ function actualizarStats() {
 // ============================================================
 //  BADGE DE PRÓXIMA PAUSA
 // ============================================================
+function getFutureTime(date, timeStr) {
+  const [h, m, s] = timeStr.split(":").map(Number);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m, s);
+}
+
 function calcularProximaPausa(sacador, now) {
   const eventos = [];
+
+  // Almuerzo individual
   if (INDIVIDUAL_PAUSES[sacador]) {
     const p = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
     if (p > now) eventos.push({ label: "🍽 Almuerzo", time: p, tipo: "almuerzo" });
   }
+
+  // Salida del día (general)
   const dia = now.getDay();
-  if (dayPausas[dia]) {
-    const p = getFutureTime(now, dayPausas[dia]);
+  if (HORA_SALIDA_DIA[dia]) {
+    const p = getFutureTime(now, HORA_SALIDA_DIA[dia]);
     if (p > now) eventos.push({ label: "🚪 Salida", time: p, tipo: "salida" });
   }
-  if (HORAS_SALIDA[sacador]) {
-    const p = getFutureTime(now, HORAS_SALIDA[sacador]);
-    if (p > now) eventos.push({ label: "🚪 Salida", time: p, tipo: "salida" });
+
+  // Salida anticipada personal
+  if (HORAS_SALIDA_ANTICIPADA[sacador]) {
+    const p = getFutureTime(now, HORAS_SALIDA_ANTICIPADA[sacador]);
+    if (p > now) eventos.push({ label: "🚪 Salida anticipada", time: p, tipo: "salida" });
   }
+
   if (!eventos.length) return null;
   eventos.sort((a, b) => a.time - b.time);
   return eventos[0];
@@ -167,8 +376,8 @@ function renderBadgePausa(index) {
   const diffMin = Math.floor(diffMs / 60000);
   const diffH   = Math.floor(diffMin / 60);
   const remMin  = diffMin % 60;
-  let textoTiempo = diffH > 0 ? `en ${diffH}h ${pad(remMin)}m` : `en ${diffMin}m`;
-  const esPronto  = diffMin <= 15;
+  const textoTiempo = diffH > 0 ? `en ${diffH}h ${pad(remMin)}m` : `en ${diffMin}m`;
+  const esPronto    = diffMin <= 15;
   badgeEl.textContent = `${prox.label} ${textoTiempo}`;
   badgeEl.className   = `badge-pausa tipo-${prox.tipo}${esPronto ? " tipo-pronto" : ""}`;
   badgeEl.style.display = "inline-flex";
@@ -181,13 +390,25 @@ function iniciarBadgeTimer(index) {
 
 // ============================================================
 //  PAUSA / REANUDACIÓN
+//  Con el nuevo esquema de segmentos:
+//    pausar  → cierra el segmento activo (seg.fin = ahora)
+//    reanudar → abre un nuevo segmento    (seg.inicio = ahora, fin = null)
 // ============================================================
 function autoPause(index, tipo = "manual") {
   const data = pausedTimers[index];
   if (!data || data.paused || data.finalizado) return;
+
+  const ahora = Date.now();
   data.paused    = true;
-  data.pausedAt  = Date.now();
   data.tipoPausa = tipo;
+
+  // Garantizar que segmentos exista
+  if (!data.segmentos) _migrarASegmentos(data, ahora);
+
+  // Cerrar el último segmento abierto
+  const ultimo = data.segmentos[data.segmentos.length - 1];
+  if (ultimo && ultimo.fin === null) ultimo.fin = ahora;
+
   const btn = document.querySelector(`#card-${index} .btn-pause`);
   if (btn) { btn.textContent = "⏸ Pausado"; btn.classList.add("paused"); }
   renderBadgePausa(index);
@@ -198,11 +419,17 @@ function autoPause(index, tipo = "manual") {
 function autoReanudar(index) {
   const data = pausedTimers[index];
   if (!data || !data.paused || data.finalizado) return;
+
   const ahora = Date.now();
-  data.pausedDuration = (data.pausedDuration || 0) + (ahora - (data.pausedAt || ahora));
+
+  // Garantizar que segmentos exista
+  if (!data.segmentos) _migrarASegmentos(data, ahora);
+
+  // Abrir nuevo segmento
+  data.segmentos.push({ inicio: ahora, fin: null });
   data.paused    = false;
-  data.pausedAt  = null;
   data.reanudado = true;
+
   iniciarTimer(index);
   const btn = document.querySelector(`#card-${index} .btn-pause`);
   if (btn) { btn.textContent = "⏸ Pausar"; btn.classList.remove("paused"); }
@@ -218,12 +445,8 @@ function reanudarTodos() { for (let i in pausedTimers) autoReanudar(i); }
 
 // ============================================================
 //  PROGRAMAR PAUSAS AUTOMÁTICAS
+//  Igual que antes pero usando los mismos datos centralizados.
 // ============================================================
-function getFutureTime(date, timeStr) {
-  const [h, m, s] = timeStr.split(":").map(Number);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m, s);
-}
-
 function addDays(date, d) {
   const nd = new Date(date);
   nd.setDate(date.getDate() + d);
@@ -232,23 +455,38 @@ function addDays(date, d) {
 
 function programarPausas(index, sacador, now) {
   const dia = now.getDay();
+
+  // ── Almuerzo individual ──
   if (INDIVIDUAL_PAUSES[sacador]) {
     const p1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
     const r1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].reanuda);
-    if (p1 > now) setTimeout(() => autoPause(index, "almuerzo"), p1 - now);
-    if (r1 > now) setTimeout(() => autoReanudar(index),          r1 - now);
+    if (p1 > now) setTimeout(() => autoPause(index, "almuerzo"),  p1 - now);
+    if (r1 > now) setTimeout(() => autoReanudar(index),           r1 - now);
   }
-  if (dayPausas[dia]) {
-    const pausaGeneral = getFutureTime(now, dayPausas[dia]);
-    const reanuda = dia === 6
-      ? getFutureTime(addDays(now, 2), "08:00:00")
-      : getFutureTime(addDays(now, 1), "08:00:00");
+
+  // ── Salida general del día ──
+  if (HORA_SALIDA_DIA[dia]) {
+    const pausaGeneral = getFutureTime(now, HORA_SALIDA_DIA[dia]);
+    // Sábado → reanuda el lunes; resto → reanuda el día siguiente
+    const diasHastaLunes = dia === 6 ? 2 : 1;
+    const reanuda = getFutureTime(addDays(now, diasHastaLunes), HORA_ENTRADA);
     if (pausaGeneral > now) setTimeout(() => autoPause(index, "salida"),  pausaGeneral - now);
     if (reanuda      > now) setTimeout(() => autoReanudar(index),         reanuda - now);
   }
-  if (HORAS_SALIDA[sacador]) {
-    const salida = getFutureTime(now, HORAS_SALIDA[sacador]);
-    if (salida > now) setTimeout(() => autoPause(index, "salida anticipada"), salida - now);
+
+  // ── Salida anticipada personal (si aplica y es antes de la general) ──
+  if (HORAS_SALIDA_ANTICIPADA[sacador]) {
+    const salidaAntic  = getFutureTime(now, HORAS_SALIDA_ANTICIPADA[sacador]);
+    const salidaGeneral = HORA_SALIDA_DIA[dia]
+      ? getFutureTime(now, HORA_SALIDA_DIA[dia])
+      : null;
+    // Solo programar si es estrictamente antes de la salida general
+    if (salidaAntic > now && (!salidaGeneral || salidaAntic < salidaGeneral)) {
+      const diasHastaLunes = dia === 6 ? 2 : 1;
+      const reanuda = getFutureTime(addDays(now, diasHastaLunes), HORA_ENTRADA);
+      setTimeout(() => autoPause(index, "salida anticipada"), salidaAntic - now);
+      if (reanuda > now) setTimeout(() => autoReanudar(index), reanuda - now);
+    }
   }
 }
 
@@ -268,25 +506,26 @@ function agregarPedido() {
     mostrarToast("🚫 Los domingos no se pueden iniciar pedidos.", "error"); return;
   }
 
-  const index = Date.now();
+  const nowMs = now.getTime();
+  const index = nowMs;
+
   const pedidoData = {
     index, codigo, sacador, cantidad,
-    startTimestamp:  now.getTime(),
-    pausedDuration:  0,
-    pausedAt:        null,
-    paused:          false,
-    tipoPausa:       null,
-    reanudado:       false,
-    finalizado:      false,
+    startTimestamp: nowMs,
+    // ── nuevo esquema de segmentos ──
+    segmentos:      [{ inicio: nowMs, fin: null }],
+    paused:         false,
+    tipoPausa:      null,
+    reanudado:      false,
+    finalizado:     false,
     tiempoPorProducto: null,
-    elapsedMsFinal:  0,
-    // ── campos de equipo ──
-    tieneEquipo:     false,
-    liderId:         sacador,
-    auxiliares:      []
+    elapsedMsFinal: 0,
+    // ── equipo ──
+    tieneEquipo:    false,
+    liderId:        sacador,
+    auxiliares:     []
   };
 
-  // Si la cantidad supera el umbral, abrir modal de equipo antes de crear
   if (cantidad >= UMBRAL_EQUIPO) {
     _pedidoPendiente = pedidoData;
     _abrirModalEquipo(pedidoData);
@@ -296,7 +535,6 @@ function agregarPedido() {
   _crearPedidoFinal(pedidoData);
 }
 
-// Pedido en espera mientras el modal de equipo está abierto
 let _pedidoPendiente = null;
 
 function _crearPedidoFinal(pedidoData) {
@@ -320,7 +558,7 @@ function _crearPedidoFinal(pedidoData) {
       HoraInicio:          formatDateTime(new Date(pedidoData.startTimestamp)),
       Estatus:             pedidoData.tieneEquipo ? "En Proceso - Equipo 👥" : "En Proceso... 📃",
       Equipo:              pedidoData.tieneEquipo
-        ? [pedidoData.liderId, ...pedidoData.auxiliares].join(", ")
+        ? [pedidoData.liderId, ...pedidoData.auxiliares.map(a => typeof a === "string" ? a : a.nombre)].join(", ")
         : pedidoData.sacador
     })
   }).catch(err => console.error("❌ Error al enviar en proceso:", err));
@@ -344,7 +582,6 @@ function _abrirModalEquipo(pedidoData) {
     `Este pedido tiene ${pedidoData.cantidad} referencias (límite sugerido: ${UMBRAL_EQUIPO}). ` +
     `¿Deseas asignar un equipo? El líder será el sacador seleccionado.`;
 
-  // Lider preview
   const iniciales = pedidoData.sacador.split(" ").slice(0,2).map(w => w[0]).join("").toUpperCase();
   document.getElementById("equipo-body").innerHTML = `
     <div class="equipo-lider-preview">
@@ -362,12 +599,8 @@ function _abrirModalEquipo(pedidoData) {
 
   document.getElementById("equipo-footer").innerHTML = `
     <div class="equipo-footer-btns">
-      <button class="modal-btn secondary" onclick="_rechazarEquipo()">
-        Continuar sin equipo
-      </button>
-      <button class="modal-btn team" onclick="_confirmarEquipo()">
-        👥 Confirmar equipo
-      </button>
+      <button class="modal-btn secondary" onclick="_rechazarEquipo()">Continuar sin equipo</button>
+      <button class="modal-btn team"      onclick="_confirmarEquipo()">👥 Confirmar equipo</button>
     </div>
   `;
 
@@ -376,7 +609,7 @@ function _abrirModalEquipo(pedidoData) {
 
 function _agregarFilaAux(lider) {
   _equipoAuxContador++;
-  const id = `aux-row-${_equipoAuxContador}`;
+  const id   = `aux-row-${_equipoAuxContador}`;
   const fila = document.createElement("div");
   fila.className = "equipo-aux-item";
   fila.id = id;
@@ -393,7 +626,6 @@ function _agregarFilaAux(lider) {
     </select>
     <button class="equipo-btn-remove-aux" onclick="document.getElementById('${id}').remove()" title="Quitar">✕</button>
   `;
-
   document.getElementById("equipo-aux-list").appendChild(fila);
 }
 
@@ -409,18 +641,13 @@ function _rechazarEquipo() {
 function _confirmarEquipo() {
   if (!_pedidoPendiente) { cerrarModalEquipo(); return; }
 
-  const selects = document.querySelectorAll("#equipo-aux-list .equipo-aux-select");
+  const selects  = document.querySelectorAll("#equipo-aux-list .equipo-aux-select");
   const auxiliares = [];
   let hayError = false;
 
   selects.forEach(sel => {
-    if (!sel.value) {
-      sel.style.borderColor = "var(--danger)";
-      hayError = true;
-    } else {
-      sel.style.borderColor = "";
-      if (!auxiliares.includes(sel.value)) auxiliares.push(sel.value);
-    }
+    if (!sel.value) { sel.style.borderColor = "var(--danger)"; hayError = true; }
+    else { sel.style.borderColor = ""; if (!auxiliares.includes(sel.value)) auxiliares.push(sel.value); }
   });
 
   if (hayError) {
@@ -430,14 +657,11 @@ function _confirmarEquipo() {
 
   const startTs = _pedidoPendiente.startTimestamp;
   _pedidoPendiente.tieneEquipo = true;
-  // Auxiliares asignados al inicio comparten el mismo timestamp de inicio del pedido
   _pedidoPendiente.auxiliares  = auxiliares.map(nombre => ({ nombre, joinedAt: startTs }));
 
   cerrarModalEquipo();
   _crearPedidoFinal(_pedidoPendiente);
-
-  const total = auxiliares.length + 1;
-  mostrarToast(`👥 Equipo de ${total} personas asignado a #${_pedidoPendiente.codigo}`, "team");
+  mostrarToast(`👥 Equipo de ${auxiliares.length + 1} personas asignado a #${_pedidoPendiente.codigo}`, "team");
   _pedidoPendiente = null;
 }
 
@@ -458,20 +682,17 @@ function abrirModalAux(index) {
   document.getElementById("aux-subtitle").textContent =
     `Pedido #${data.codigo} — ${data.sacador}`;
 
-  // Filtrar sacadores ya en el equipo
   const yaAsignados = [
     data.liderId || data.sacador,
     ...(data.auxiliares || []).map(a => typeof a === "string" ? a : a.nombre)
   ];
-  const auxSelect   = document.getElementById("aux-select");
+  const auxSelect = document.getElementById("aux-select");
   auxSelect.innerHTML = '<option value="">-- Selecciona un colaborador --</option>';
-
   TODOS_LOS_SACADORES
     .filter(s => !yaAsignados.includes(s))
     .forEach(s => {
       const opt = document.createElement("option");
-      opt.value = s;
-      opt.textContent = s;
+      opt.value = s; opt.textContent = s;
       auxSelect.appendChild(opt);
     });
 
@@ -492,66 +713,51 @@ function confirmarAgregarAux() {
   const errorEl  = document.getElementById("aux-error");
   const nuevoAux = select.value;
 
-  if (!nuevoAux) {
-    errorEl.classList.add("visible");
-    select.focus();
-    return;
-  }
+  if (!nuevoAux) { errorEl.classList.add("visible"); select.focus(); return; }
 
   const data = pausedTimers[_auxTargetIndex];
   if (!data) { cerrarModalAux(); return; }
 
-  if (!data.auxiliares) data.auxiliares = [];
+  if (!data.auxiliares)  data.auxiliares  = [];
   if (!data.tieneEquipo) data.tieneEquipo = true;
-  if (!data.liderId) data.liderId = data.sacador;
+  if (!data.liderId)     data.liderId     = data.sacador;
 
-  // ── NUEVO: guardar timestamp exacto de cuando se unió ──
   const joinedAt = Date.now();
   data.auxiliares.push({ nombre: nuevoAux, joinedAt });
 
   cerrarModalAux();
   _actualizarSeccionEquipo(_auxTargetIndex);
   guardarPedidos();
-
   mostrarToast(`👥 ${nuevoAux.split(" ")[0]} se unió al equipo de #${data.codigo} — ${formatearFecha(joinedAt)}`, "team");
 }
 
 // ============================================================
-//  RENDERIZAR SECCIÓN DE EQUIPO EN LA TARJETA
+//  RENDERIZAR SECCIÓN EQUIPO EN LA TARJETA
 // ============================================================
 function _actualizarSeccionEquipo(index) {
   const data = pausedTimers[index];
   if (!data) return;
-
   const card = document.getElementById(`card-${index}`);
   if (!card) return;
 
-  // Actualizar clase visual de la tarjeta
-  if (data.tieneEquipo && (data.auxiliares || []).length > 0) {
-    card.classList.add("en-equipo");
-  }
+  if (data.tieneEquipo && (data.auxiliares || []).length > 0) card.classList.add("en-equipo");
 
-  let teamSection = document.getElementById(`team-section-${index}`);
-  const lider = data.liderId || data.sacador;
+  const lider      = data.liderId || data.sacador;
   const auxiliares = data.auxiliares || [];
 
-  // ── ACTUALIZADO: mostrar fecha/hora de unión de cada auxiliar ──
   const miembrosHTML = auxiliares.map(a => {
-    const nombre   = typeof a === "string" ? a : a.nombre;
-    const joined   = (typeof a === "object" && a.joinedAt)
+    const nombre = typeof a === "string" ? a : a.nombre;
+    const joined = (typeof a === "object" && a.joinedAt)
       ? `<span class="member-joined">Se unió: ${formatearFecha(a.joinedAt)}</span>`
       : "";
     return `
       <div class="task-team-member">
         <span class="member-role auxiliar">Aux</span>
-        <div class="member-info">
-          <span>${nombre}</span>
-          ${joined}
-        </div>
+        <div class="member-info"><span>${nombre}</span>${joined}</div>
       </div>`;
   }).join("");
 
-  const btnAuxLabel = auxiliares.length === 0 ? "+ Agregar auxiliar" : "+ Añadir otro auxiliar";
+  const btnLabel = auxiliares.length === 0 ? "+ Agregar auxiliar" : "+ Añadir otro auxiliar";
 
   const innerHTML = `
     <div class="task-team-title">👥 Equipo</div>
@@ -563,9 +769,10 @@ function _actualizarSeccionEquipo(index) {
       </div>
     </div>
     ${miembrosHTML}
-    ${!data.finalizado ? `<button class="btn-add-aux" onclick="abrirModalAux(${index})">${btnAuxLabel}</button>` : ""}
+    ${!data.finalizado ? `<button class="btn-add-aux" onclick="abrirModalAux(${index})">${btnLabel}</button>` : ""}
   `;
 
+  let teamSection = document.getElementById(`team-section-${index}`);
   if (teamSection) {
     teamSection.innerHTML = innerHTML;
   } else {
@@ -573,18 +780,12 @@ function _actualizarSeccionEquipo(index) {
     teamSection.className = "task-team";
     teamSection.id = `team-section-${index}`;
     teamSection.innerHTML = innerHTML;
-
-    // Insertar antes de task-times
     const timesEl = document.getElementById(`times-wrap-${index}`);
-    if (timesEl) {
-      card.insertBefore(teamSection, timesEl);
-    } else {
+    if (timesEl) card.insertBefore(teamSection, timesEl);
+    else {
       const metaEl = card.querySelector(".task-meta");
-      if (metaEl && metaEl.nextSibling) {
-        card.insertBefore(teamSection, metaEl.nextSibling);
-      } else {
-        card.appendChild(teamSection);
-      }
+      if (metaEl && metaEl.nextSibling) card.insertBefore(teamSection, metaEl.nextSibling);
+      else card.appendChild(teamSection);
     }
   }
 }
@@ -601,9 +802,7 @@ function crearTarjeta(pedido) {
   task.dataset.codigo  = codigo.toLowerCase();
   task.dataset.sacador = sacador.toLowerCase();
 
-  if (tieneEquipo && (pedido.auxiliares || []).length > 0) {
-    task.classList.add("en-equipo");
-  }
+  if (tieneEquipo && (pedido.auxiliares || []).length > 0) task.classList.add("en-equipo");
 
   task.innerHTML = `
     <div class="task-header">
@@ -638,16 +837,13 @@ function crearTarjeta(pedido) {
 
   taskList.appendChild(task);
 
-  // Si el pedido ya tiene equipo (p.ej. al reconstruir desde localStorage), renderizar sección
   if (tieneEquipo || (pedido.auxiliares && pedido.auxiliares.length > 0)) {
     _actualizarSeccionEquipo(index);
   } else if (!pedido.finalizado) {
-    // Mostrar botón de "agregar auxiliar" en todos los pedidos activos
     _agregarBtnAuxSuelto(index);
   }
 }
 
-// Botón auxiliar suelto para pedidos sin equipo aún
 function _agregarBtnAuxSuelto(index) {
   const data = pausedTimers[index];
   if (!data || data.finalizado) return;
@@ -655,17 +851,16 @@ function _agregarBtnAuxSuelto(index) {
   if (!card || card.querySelector(".btn-add-aux")) return;
 
   const btn = document.createElement("button");
-  btn.className = "btn-add-aux";
+  btn.className   = "btn-add-aux";
   btn.textContent = "+ Agregar auxiliar";
-  btn.onclick = () => abrirModalAux(index);
+  btn.onclick     = () => abrirModalAux(index);
 
-  // Insertarlo antes de task-actions
   const actionsEl = card.querySelector(".task-actions");
   if (actionsEl) card.insertBefore(btn, actionsEl);
 }
 
 // ============================================================
-//  MODAL DE FINALIZAR — 4 pasos
+//  MODAL FINALIZAR — 4 pasos
 // ============================================================
 let modalIndex      = null;
 let modalStep       = 1;
@@ -675,13 +870,9 @@ function abrirModalFinalizar(index) {
   modalIndex      = index;
   modalStep       = 1;
   modalRespuestas = {};
-  const overlay   = document.getElementById("modal-overlay");
-  overlay.classList.add("open");
+  document.getElementById("modal-overlay").classList.add("open");
   renderModalStep(1);
-  setTimeout(() => {
-    const input = document.getElementById("modal-input");
-    if (input) input.focus();
-  }, 100);
+  setTimeout(() => { const i = document.getElementById("modal-input"); if (i) i.focus(); }, 100);
 }
 
 function cerrarModal() {
@@ -691,26 +882,14 @@ function cerrarModal() {
 
 function renderModalStep(step) {
   const data = pausedTimers[modalIndex];
-  const titles = [
-    "",
-    "¿Cuántos productos se sacaron?",
-    "¿Cuántos bultos se realizaron?",
-    "¿Cuál es el monto total del pedido?",
-    "Resumen del pedido"
-  ];
-  const subtitles = [
-    "",
-    `Esperado: ${data.cantidad} producto${data.cantidad > 1 ? "s" : ""}`,
-    "Cantidad de bultos completados",
-    "Monto en RD$",
-    "Confirma los datos antes de guardar"
-  ];
+  const titles   = ["","¿Cuántos productos se sacaron?","¿Cuántos bultos se realizaron?","¿Cuál es el monto total del pedido?","Resumen del pedido"];
+  const subtitles = ["",`Esperado: ${data.cantidad} producto${data.cantidad > 1 ? "s" : ""}`,
+    "Cantidad de bultos completados","Monto en RD$","Confirma los datos antes de guardar"];
 
   document.getElementById("modal-title").textContent    = titles[step];
   document.getElementById("modal-subtitle").textContent = subtitles[step];
 
-  const dots = document.querySelectorAll("#modal .modal-step-dot");
-  dots.forEach((dot, i) => {
+  document.querySelectorAll("#modal .modal-step-dot").forEach((dot, i) => {
     dot.classList.remove("active", "done");
     if (i + 1 < step)        dot.classList.add("done");
     else if (i + 1 === step) dot.classList.add("active");
@@ -721,14 +900,8 @@ function renderModalStep(step) {
   body.innerHTML = "";
 
   if (step < 4) {
-    const isLast = step === 3;
-    const tipos  = ["", "number", "number", "number"];
-    const hints  = [
-      "",
-      `Máximo: ${data.cantidad}`,
-      "Solo números enteros positivos",
-      "Ejemplo: 1500.00"
-    ];
+    const tipos = ["","number","number","number"];
+    const hints = ["",`Máximo: ${data.cantidad}`,"Solo números enteros positivos","Ejemplo: 1500.00"];
 
     body.innerHTML = `
       <div class="modal-field">
@@ -739,29 +912,20 @@ function renderModalStep(step) {
       <p class="modal-hint" id="modal-hint">${hints[step]}</p>
       <p class="modal-hint error-msg" id="modal-error">Valor inválido, intenta de nuevo.</p>
     `;
-
     footer.innerHTML = `
       <button class="modal-btn secondary" onclick="cerrarModal()">Cancelar</button>
-      <button class="modal-btn primary" onclick="modalSiguiente()">
-        ${isLast ? "Ver resumen →" : "Siguiente →"}
-      </button>
+      <button class="modal-btn primary"   onclick="modalSiguiente()">${step === 3 ? "Ver resumen →" : "Siguiente →"}</button>
     `;
-
     const input = document.getElementById("modal-input");
-    if (input) {
-      input.addEventListener("keydown", e => {
-        if (e.key === "Enter") { e.preventDefault(); modalSiguiente(); }
-      });
-    }
+    if (input) input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); modalSiguiente(); } });
 
   } else {
     const now        = new Date();
     const elapsedMs  = calcularElapsedMs(data, now.getTime());
     const elapsedSeg = Math.floor(elapsedMs / 1000);
-    const cantidadSacada = modalRespuestas.cantidad;
-    const porcentaje     = Math.round((cantidadSacada / data.cantidad) * 100);
-    let tpp = "—";
-    if (cantidadSacada > 0) tpp = formatTime(Math.floor(elapsedSeg / cantidadSacada));
+    const cantSacada = modalRespuestas.cantidad;
+    const porcentaje = Math.round((cantSacada / data.cantidad) * 100);
+    const tpp        = cantSacada > 0 ? formatTime(Math.floor(elapsedSeg / cantSacada)) : "—";
 
     const equipoRow = data.tieneEquipo && data.auxiliares && data.auxiliares.length > 0
       ? `<div class="summary-row">
@@ -769,46 +933,23 @@ function renderModalStep(step) {
            <span class="summary-val" style="color:var(--team);font-size:12px;">
              ${[data.liderId || data.sacador, ...data.auxiliares.map(a => typeof a === "string" ? a : a.nombre)].join(", ")}
            </span>
-         </div>`
-      : "";
+         </div>` : "";
 
     body.innerHTML = `
       <div class="modal-summary">
-        <div class="summary-row">
-          <span class="summary-key">Pedido</span>
-          <span class="summary-val highlight">#${data.codigo}</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-key">Sacador</span>
-          <span class="summary-val">${data.sacador.split(" ").slice(0,2).join(" ")}</span>
-        </div>
+        <div class="summary-row"><span class="summary-key">Pedido</span><span class="summary-val highlight">#${data.codigo}</span></div>
+        <div class="summary-row"><span class="summary-key">Sacador</span><span class="summary-val">${data.sacador.split(" ").slice(0,2).join(" ")}</span></div>
         ${equipoRow}
-        <div class="summary-row">
-          <span class="summary-key">Productos sacados</span>
-          <span class="summary-val">${cantidadSacada} / ${data.cantidad} (${porcentaje}%)</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-key">Tiempo total</span>
-          <span class="summary-val success">${formatTime(elapsedSeg)}</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-key">Tiempo/producto</span>
-          <span class="summary-val success">${tpp}</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-key">Bultos</span>
-          <span class="summary-val">${modalRespuestas.bultos}</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-key">Monto total</span>
-          <span class="summary-val">RD$ ${parseFloat(modalRespuestas.monto).toFixed(2)}</span>
-        </div>
+        <div class="summary-row"><span class="summary-key">Productos sacados</span><span class="summary-val">${cantSacada} / ${data.cantidad} (${porcentaje}%)</span></div>
+        <div class="summary-row"><span class="summary-key">Tiempo laborable</span><span class="summary-val success">${formatTime(elapsedSeg)}</span></div>
+        <div class="summary-row"><span class="summary-key">Tiempo/producto</span><span class="summary-val success">${tpp}</span></div>
+        <div class="summary-row"><span class="summary-key">Bultos</span><span class="summary-val">${modalRespuestas.bultos}</span></div>
+        <div class="summary-row"><span class="summary-key">Monto total</span><span class="summary-val">RD$ ${parseFloat(modalRespuestas.monto).toFixed(2)}</span></div>
       </div>
     `;
-
     footer.innerHTML = `
       <button class="modal-btn secondary" onclick="modalAnterior()">← Atrás</button>
-      <button class="modal-btn success" onclick="confirmarFinalizar()">✔ Confirmar</button>
+      <button class="modal-btn success"   onclick="confirmarFinalizar()">✔ Confirmar</button>
     `;
   }
 }
@@ -818,23 +959,19 @@ function modalSiguiente() {
   const errorEl  = document.getElementById("modal-error");
   const data     = pausedTimers[modalIndex];
   const val      = parseFloat(input.value);
-  let valido     = true;
-  let mensajeError = "Valor inválido, intenta de nuevo.";
+  let valido = true, mensajeError = "Valor inválido, intenta de nuevo.";
 
   if (modalStep === 1) {
     if (isNaN(val) || val < 0 || val > data.cantidad || !Number.isInteger(val)) {
-      valido = false;
-      mensajeError = `Ingresa un número entre 0 y ${data.cantidad}.`;
+      valido = false; mensajeError = `Ingresa un número entre 0 y ${data.cantidad}.`;
     } else { modalRespuestas.cantidad = val; }
   } else if (modalStep === 2) {
     if (isNaN(val) || val < 0 || !Number.isInteger(val)) {
-      valido = false;
-      mensajeError = "Ingresa un número entero positivo.";
+      valido = false; mensajeError = "Ingresa un número entero positivo.";
     } else { modalRespuestas.bultos = val; }
   } else if (modalStep === 3) {
     if (isNaN(val) || val < 0) {
-      valido = false;
-      mensajeError = "Ingresa un monto válido mayor o igual a 0.";
+      valido = false; mensajeError = "Ingresa un monto válido mayor o igual a 0.";
     } else { modalRespuestas.monto = val; }
   }
 
@@ -845,23 +982,16 @@ function modalSiguiente() {
     input.focus();
     return;
   }
-
   modalStep++;
   renderModalStep(modalStep);
-  setTimeout(() => {
-    const ni = document.getElementById("modal-input");
-    if (ni) ni.focus();
-  }, 80);
+  setTimeout(() => { const ni = document.getElementById("modal-input"); if (ni) ni.focus(); }, 80);
 }
 
 function modalAnterior() {
   if (modalStep > 1) {
     modalStep--;
     renderModalStep(modalStep);
-    setTimeout(() => {
-      const ni = document.getElementById("modal-input");
-      if (ni) ni.focus();
-    }, 80);
+    setTimeout(() => { const ni = document.getElementById("modal-input"); if (ni) ni.focus(); }, 80);
   }
 }
 
@@ -872,24 +1002,25 @@ function confirmarFinalizar() {
 
   cerrarModal();
 
-  if (data.paused) {
-    data.pausedDuration = (data.pausedDuration || 0) + (now.getTime() - (data.pausedAt || now.getTime()));
-    data.paused   = false;
-    data.pausedAt = null;
+  // Cerrar el segmento activo si el pedido no estaba pausado
+  if (!data.paused) {
+    if (!data.segmentos) _migrarASegmentos(data, now.getTime());
+    const ultimo = data.segmentos[data.segmentos.length - 1];
+    if (ultimo && ultimo.fin === null) ultimo.fin = now.getTime();
   }
 
-  const elapsedMs      = calcularElapsedMs(data, now.getTime());
-  const elapsedSeg     = Math.floor(elapsedMs / 1000);
-  const cantidadSacada = modalRespuestas.cantidad;
-  const bultos         = modalRespuestas.bultos;
-  const montoTotal     = parseFloat(modalRespuestas.monto);
-  const porcentaje     = Math.round((cantidadSacada / data.cantidad) * 100);
+  const elapsedMs         = calcularElapsedMs(data, now.getTime());
+  const elapsedSeg        = Math.floor(elapsedMs / 1000);
+  const cantidadSacada    = modalRespuestas.cantidad;
+  const bultos            = modalRespuestas.bultos;
+  const montoTotal        = parseFloat(modalRespuestas.monto);
+  const porcentaje        = Math.round((cantidadSacada / data.cantidad) * 100);
 
   let tiempoPorProductoSeg = 0;
-  let tiempoFormateado = "00:00:00";
+  let tiempoFormateado     = "00:00:00";
   if (cantidadSacada > 0) {
     tiempoPorProductoSeg = elapsedSeg / cantidadSacada;
-    tiempoFormateado = formatTime(Math.floor(tiempoPorProductoSeg));
+    tiempoFormateado     = formatTime(Math.floor(tiempoPorProductoSeg));
   }
 
   data.finalizado        = true;
@@ -906,10 +1037,8 @@ function confirmarFinalizar() {
 
   const endEl   = document.getElementById(`end-${index}`);
   if (endEl)    endEl.textContent = formatearFecha(now.getTime());
-
   const timerEl = document.getElementById(`timer-${index}`);
   if (timerEl)  timerEl.textContent = formatTime(elapsedSeg);
-
   const tppWrap = document.getElementById(`tpp-wrap-${index}`);
   const tppEl   = document.getElementById(`tpp-${index}`);
   const badgeEl = document.getElementById(`badge-pausa-${index}`);
@@ -917,53 +1046,42 @@ function confirmarFinalizar() {
   if (tppEl)   tppEl.textContent = tiempoFormateado;
   if (badgeEl) badgeEl.style.display = "none";
 
-  // Actualizar sección equipo (quitar btn de agregar)
-  const teamSection = document.getElementById(`team-section-${index}`);
-  if (teamSection) {
-    const btnAux = teamSection.querySelector(".btn-add-aux");
-    if (btnAux) btnAux.remove();
-  }
-
-  // Quitar también el botón suelto si existe fuera de la sección equipo
-  const btnAuxSuelto = card ? card.querySelector(".btn-add-aux") : null;
+  const teamSection   = document.getElementById(`team-section-${index}`);
+  if (teamSection) { const b = teamSection.querySelector(".btn-add-aux"); if (b) b.remove(); }
+  const btnAuxSuelto  = card ? card.querySelector(".btn-add-aux") : null;
   if (btnAuxSuelto) btnAuxSuelto.remove();
 
   guardarPedidos();
   actualizarStats();
 
-  const equipoStr = data.tieneEquipo && data.auxiliares && data.auxiliares.length > 0
-    ? ` | Equipo: ${data.auxiliares.length + 1} personas`
-    : "";
+  const auxList        = data.auxiliares || [];
+  const endTs          = data.endTimestamp;
+  const equipoCompleto = data.tieneEquipo && auxList.length > 0
+    ? [data.liderId || data.sacador, ...auxList.map(a => typeof a === "string" ? a : a.nombre)].join(", ")
+    : data.sacador;
 
+  // ── Calcular tiempo laborable individual de cada auxiliar ──
+  const auxDetalles = auxList.map(a => {
+    const nombre   = typeof a === "string" ? a : a.nombre;
+    const joinedAt = (typeof a === "object" && a.joinedAt) ? a.joinedAt : data.startTimestamp;
+    // El auxiliar trabajó desde joinedAt hasta endTs, pero solo las horas laborables
+    const tiempoAuxSeg = calcularSegLaborables(nombre, joinedAt, endTs);
+    const tppAux = cantidadSacada > 0
+      ? formatTime(Math.floor(tiempoAuxSeg / cantidadSacada))
+      : "00:00:00";
+    return { nombre, joinedAt, tiempoAuxSeg, tppAux };
+  });
+
+  const equipoStr = data.tieneEquipo && auxList.length > 0
+    ? ` | Equipo: ${auxList.length + 1} personas` : "";
   mostrarToast(
     `✅ ${data.sacador.split(" ")[0]} — ${porcentaje}% | ${tiempoFormateado}/prod | ${bultos} bultos | RD$ ${montoTotal.toFixed(2)}${equipoStr}`,
     "success"
   );
 
-  const auxList = (data.auxiliares || []);
-  const endTs   = data.endTimestamp;
-
-  // Construir string de equipo completo
-  const equipoCompleto = data.tieneEquipo && auxList.length > 0
-    ? [data.liderId || data.sacador, ...auxList.map(a => typeof a === "string" ? a : a.nombre)].join(", ")
-    : data.sacador;
-
-  // ── ACTUALIZADO: calcular tiempo trabajado individual por cada auxiliar ──
-  const auxDetalles = auxList.map(a => {
-    const nombre   = typeof a === "string" ? a : a.nombre;
-    // joinedAt: cuando se incorporó. Si era del equipo inicial, es igual al startTimestamp del pedido.
-    const joinedAt = (typeof a === "object" && a.joinedAt) ? a.joinedAt : data.startTimestamp;
-    const tiempoAuxMs  = endTs - joinedAt;
-    const tiempoAuxSeg = Math.max(0, Math.floor(tiempoAuxMs / 1000));
-    let   tppAux       = "00:00:00";
-    if (cantidadSacada > 0) tppAux = formatTime(Math.floor(tiempoAuxSeg / cantidadSacada));
-    return { nombre, joinedAt, tiempoAuxSeg, tppAux };
-  });
-
-  // ── Registro principal: el LÍDER ──
+  // ── Historial: líder ──
   fetch(API_HOJA_HISTORIAL, {
-    method: "POST",
-    mode: "cors",
+    method: "POST", mode: "cors",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       "Codigo P":                  data.codigo,
@@ -979,13 +1097,12 @@ function confirmarFinalizar() {
       "Bultos":                    bultos,
       "MontoFinal":                montoTotal.toFixed(2)
     })
-  }).catch(err => console.error("❌ Error al enviar historial (líder):", err));
+  }).catch(err => console.error("❌ Error historial (líder):", err));
 
-  // ── Un registro por cada AUXILIAR con su tiempo real trabajado ──
+  // ── Historial: un registro por auxiliar con su tiempo laborable real ──
   auxDetalles.forEach(aux => {
     fetch(API_HOJA_HISTORIAL, {
-      method: "POST",
-      mode: "cors",
+      method: "POST", mode: "cors",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         "Codigo P":                  data.codigo,
@@ -997,19 +1114,17 @@ function confirmarFinalizar() {
         "HoraFin ":                  formatDateTime(new Date(endTs)),
         "TiempoTotal ":              formatTime(aux.tiempoAuxSeg),
         "TiempoPorProductoSegundos": cantidadSacada > 0
-                                       ? (aux.tiempoAuxSeg / cantidadSacada).toFixed(2)
-                                       : "0.00",
+          ? (aux.tiempoAuxSeg / cantidadSacada).toFixed(2) : "0.00",
         "TiempoPorProducto":         aux.tppAux,
         "Bultos":                    bultos,
         "MontoFinal":                montoTotal.toFixed(2)
       })
-    }).catch(err => console.error(`❌ Error al enviar historial (aux ${aux.nombre}):`, err));
+    }).catch(err => console.error(`❌ Error historial (aux ${aux.nombre}):`, err));
   });
 
-  // ── Actualizar estatus en la hoja de proceso ──
+  // ── Actualizar hoja proceso ──
   fetch(`${API_HOJA_PROCESO}/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
-    method: "PATCH",
-    mode: "cors",
+    method: "PATCH", mode: "cors",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       CantidadProductos: data.cantidad,
@@ -1017,7 +1132,7 @@ function confirmarFinalizar() {
       HoraFin:           formatDateTime(new Date(endTs)),
       Estatus:           "Finalizado"
     })
-  }).catch(err => console.error("❌ Error al actualizar Sheet externo:", err));
+  }).catch(err => console.error("❌ Error actualizar proceso:", err));
 }
 
 // ============================================================
@@ -1026,7 +1141,6 @@ function confirmarFinalizar() {
 function aplicarFiltro() {
   const textoBusqueda = (document.getElementById("filtro-texto")?.value || "").toLowerCase().trim();
   const sacadorFiltro = (document.getElementById("filtro-sacador")?.value || "").toLowerCase();
-
   let visibles = 0;
   const total  = Object.keys(pausedTimers).length;
 
@@ -1041,10 +1155,8 @@ function aplicarFiltro() {
   const countEl = document.getElementById("filter-count");
   if (countEl) {
     countEl.textContent = textoBusqueda || sacadorFiltro
-      ? `${visibles} de ${total}`
-      : `${total} pedidos`;
+      ? `${visibles} de ${total}` : `${total} pedidos`;
   }
-
   const emptyEl = document.getElementById("empty-state");
   if (emptyEl) emptyEl.classList.toggle("visible", visibles === 0 && total > 0);
 }
@@ -1089,46 +1201,89 @@ function eliminarTodos() {
 
 // ============================================================
 //  PERSISTENCIA
+//  guardarPedidos: guarda el array de segmentos tal cual.
+//  reconstruirPedido: migra pedidos del esquema viejo al nuevo.
 // ============================================================
 function guardarPedidos() {
-  const ahora = Date.now();
-  for (let i in pausedTimers) {
-    const d = pausedTimers[i];
-    if (!d.finalizado) {
-      d.elapsedSnapshot = calcularElapsedMs(d, ahora);
-      d.savedAt = ahora;
-    }
-  }
   localStorage.setItem("pedidos", JSON.stringify(pausedTimers));
 }
 
 function reconstruirPedido(pedido) {
   const index = pedido.index;
 
-  if (!pedido.finalizado) {
-    const ahora      = Date.now();
-    const snapshotMs = pedido.elapsedSnapshot || 0;
+  // ── Compatibilidad: convertir esquema viejo al nuevo de segmentos ──
+  //
+  //  El esquema viejo guardaba:
+  //    startTimestamp  → timestamp real de inicio
+  //    elapsedSnapshot → ms acumulados LABORABLES hasta el momento de guardar
+  //    savedAt         → timestamp en que se guardó
+  //    pausedDuration  → ms totales de pausa manual acumulados
+  //    pausedAt        → timestamp en que se pausó (si estaba pausado)
+  //    paused          → boolean
+  //
+  //  Con esos datos reconstruimos dos segmentos sintéticos que representan
+  //  con la mayor fidelidad posible el tiempo real trabajado:
+  //
+  //    Segmento A:  [startTimestamp  →  savedAt]   (tramo "antes del cierre")
+  //    Segmento B:  [savedAt         →  ahora]     (tramo "mientras estuvo cerrado")
+  //                  (solo si no estaba pausado al guardar)
+  //
+  //  Esto es mucho más preciso que un único segmento desde startTimestamp
+  //  porque calcularSegLaborables ignorará automáticamente noches, fines de
+  //  semana y pausas de almuerzo dentro de cada segmento.
+  //
+  //  NOTA: los pedidos FINALIZADOS ya tienen elapsedMsFinal calculado con el
+  //  motor viejo, así que los respetamos tal cual y solo creamos segmentos
+  //  decorativos para no romper el renderizado.
 
-    if (!pedido.paused) {
-      const tiempoCerradoMs = pedido.savedAt ? (ahora - pedido.savedAt) : 0;
-      pedido.startTimestamp = ahora - snapshotMs - tiempoCerradoMs;
-      pedido.pausedDuration = 0;
+  if (!pedido.segmentos || pedido.segmentos.length === 0) {
+    const ahora = Date.now();
+
+    if (pedido.finalizado) {
+      // Pedido ya cerrado: conservar elapsedMsFinal del cálculo original.
+      // Segmento decorativo que abarca inicio→fin real.
+      pedido.segmentos = [{
+        inicio: pedido.startTimestamp || ahora,
+        fin:    pedido.endTimestamp   || ahora
+      }];
+
+    } else if (pedido.paused) {
+      // Estaba pausado cuando se guardó.
+      // savedAt y pausedAt deberían ser casi iguales; usamos pausedAt como
+      // cierre del único segmento que podemos garantizar.
+      const inicioReal = pedido.startTimestamp || ahora;
+      const finReal    = pedido.pausedAt       || pedido.savedAt || ahora;
+      pedido.segmentos = [{ inicio: inicioReal, fin: finReal }];
+
     } else {
-      pedido.startTimestamp = ahora - snapshotMs - (pedido.pausedDuration || 0);
-      pedido.pausedAt       = ahora;
+      // Estaba ACTIVO cuando se guardó.
+      // Construimos dos segmentos:
+      //   1. inicio real → savedAt  (tiempo antes del cierre de pestaña/reload)
+      //   2. savedAt     → ahora    (tiempo que transcurrió mientras estaba cerrado)
+      // calcularSegLaborables se encargará de ignorar lo no-laborable en ambos.
+      const inicioReal = pedido.startTimestamp || ahora;
+      const savedAt    = pedido.savedAt        || ahora;
+      pedido.segmentos = [
+        { inicio: inicioReal, fin: savedAt },  // tramo antes del reload
+        { inicio: savedAt,    fin: null    }   // tramo desde que se reabrió
+      ];
     }
+
+    // Limpiar campos del esquema viejo para que no generen confusión
+    delete pedido.elapsedSnapshot;
+    delete pedido.savedAt;
+    delete pedido.pausedDuration;
+    // startTimestamp y pausedAt se conservan porque otras partes del código los usan
   }
 
-  // Compatibilidad con pedidos guardados antes de la actualización
+  // ── Compatibilidad: auxiliares como strings → objetos ──
   if (!pedido.auxiliares)  pedido.auxiliares  = [];
   if (!pedido.liderId)     pedido.liderId     = pedido.sacador;
   if (pedido.tieneEquipo === undefined) pedido.tieneEquipo = false;
 
-  // Compatibilidad: convertir auxiliares en formato string (antiguo) a objeto {nombre, joinedAt}
-  pedido.auxiliares = pedido.auxiliares.map(a => {
-    if (typeof a === "string") return { nombre: a, joinedAt: pedido.startTimestamp };
-    return a;
-  });
+  pedido.auxiliares = pedido.auxiliares.map(a =>
+    typeof a === "string" ? { nombre: a, joinedAt: pedido.startTimestamp } : a
+  );
 
   pausedTimers[index] = pedido;
   crearTarjeta(pedido);
