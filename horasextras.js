@@ -84,18 +84,17 @@ function getRangosConExtras(fecha, sacador, rangosBase) {
   return rangos;
 }
 
-// Monkey-patch de getRangosLaboralesDia para inyectar extras
-// (se invoca después de que script.js cargue la función base)
-const _getRangosLaboralesDiaOriginal = typeof getRangosLaboralesDia === "function"
-  ? getRangosLaboralesDia
-  : null;
+// Esperamos a que el DOM cargue para parchear,
+// así script.js ya definió su versión primero.
+window.addEventListener("load", () => {
+  // Guardamos la referencia REAL de script.js en una variable local cerrada
+  const _original = window.getRangosLaboralesDia.bind({});
 
-function getRangosLaboralesDia(fecha, sacador) {
-  const rangosBase = _getRangosLaboralesDiaOriginal
-    ? _getRangosLaboralesDiaOriginal(fecha, sacador)
-    : [];
-  return getRangosConExtras(fecha, sacador, rangosBase);
-}
+  window.getRangosLaboralesDia = function(fecha, sacador) {
+    const rangosBase = _original(fecha, sacador);
+    return getRangosConExtras(fecha, sacador, rangosBase);
+  };
+}, { once: true });
 
 // También parchear esMomentoLaborable para que los domingos
 // con día especial se consideren laborables.
