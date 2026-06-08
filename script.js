@@ -11,54 +11,118 @@ let timers       = {};
 let pausedTimers = {};
 
 // ============================================================
+//  DÍAS FERIADOS
+//  Formato: "YYYY-MM-DD"
+//  Se pueden agregar/editar desde el panel de Feriados (UI).
+//  También se pueden hardcodear aquí para el año en curso.
+// ============================================================
+function cargarFeriados() {
+  try {
+    return JSON.parse(localStorage.getItem("feriados_no_laborables") || "[]");
+  } catch { return []; }
+}
+
+function guardarFeriados(lista) {
+  localStorage.setItem("feriados_no_laborables", JSON.stringify(lista));
+}
+
+function esFeriado(fecha) {
+  const key = `${fecha.getFullYear()}-${pad(fecha.getMonth()+1)}-${pad(fecha.getDate())}`;
+  return cargarFeriados().includes(key);
+}
+
+// ============================================================
 //  HORARIOS LABORABLES
-//  Toda la lógica de "¿este segundo cuenta como tiempo trabajado?"
-//  vive aquí. Editar sólo esta sección para cambiar horarios.
+//  — Diferenciados por persona y día de la semana —
 // ============================================================
 
 // Hora de ENTRADA general (todos los días laborables)
 const HORA_ENTRADA = "08:00:00";
 
-// Hora de SALIDA general por día de la semana (0=Dom, 1=Lun … 6=Sáb)
-// Domingo (0) no existe porque es no-laborable.
-// Sábado (6): sale a las 12:00 y NO vuelve hasta el lunes.
-const HORA_SALIDA_DIA = {
-  1: "18:00:00",
-  2: "18:00:00",
-  3: "18:00:00",
-  4: "18:00:00",
-  5: "17:00:00",
-  6: "12:00:00"
+// ── Salida por persona y día ──────────────────────────────────
+// Claves: nombre → { lun_jue, vie, sab }
+// lun_jue: hora de salida de lunes a jueves
+// vie    : hora de salida los viernes
+// sab    : hora de salida los sábados (null = no trabaja sábado)
+const HORARIO_SALIDA_PERSONAL = {
+  "Elvin Manuel Villar Holguin":        { lun_jue: "18:00:00", vie: "17:00:00", sab: null         },
+  "Fernando Robles Grullon":            { lun_jue: "17:00:00", vie: "17:00:00", sab: null         },
+  "Clara Elvira Fanith Perez":          { lun_jue: "18:00:00", vie: "17:00:00", sab: null         },
+  "Omar Marmolejos Fajardo":            { lun_jue: "17:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Jairo Fernandez Salcedo":            { lun_jue: "17:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Juan De Jesús Peña Pérez":           { lun_jue: "17:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Luis David Nuñez Santos":            { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Cirilo Reynoso Acevedo":             { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Enrique Nuñez Brito":                { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Luis Eduardo Reyes":                 { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Bryhan Santo Cordero":               { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Wilkin Ortega Diaz":                 { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Yan Carlos Cruz Paulino":            { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Fernando Antonio Burgos Cabrera":    { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Omelbe Gomez Valdez":                { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Ismael Augusto Veras Lasuse":        { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
+  "Anyelo Morel Acosta":                { lun_jue: "18:00:00", vie: "17:00:00", sab: null         },
+  "Yustin Alexander Mendez":            { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
 };
 
-// Pausa de almuerzo individual  { pausa, reanuda }
+// Fallback para sacadores no listados explícitamente
+const HORARIO_SALIDA_DEFAULT = { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00" };
+
+function getSalidaPersonal(sacador, dia) {
+  const h = HORARIO_SALIDA_PERSONAL[sacador] || HORARIO_SALIDA_DEFAULT;
+  if (dia >= 1 && dia <= 4) return h.lun_jue; // Lun–Jue
+  if (dia === 5)             return h.vie;     // Viernes
+  if (dia === 6)             return h.sab;     // Sábado (null = no trabaja)
+  return null;                                 // Domingo
+}
+
+// ── Breaks de 10 minutos ─────────────────────────────────────
+// Cada break: { hora: "HH:MM:SS", duracion: 600 }  (600 seg = 10 min)
+// Se definen por persona. Solo aplican en días Lun–Jue.
+// Los días Vie y Sáb NO tienen estos breaks según el horario.
+const BREAKS_10MIN = {
+  "Omar Marmolejos Fajardo":         [{ hora: "10:00:00", durMin: 10 }, { hora: "12:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Jairo Fernandez Salcedo":         [{ hora: "10:00:00", durMin: 10 }, { hora: "12:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Juan De Jesús Peña Pérez":        [{ hora: "10:00:00", durMin: 10 }, { hora: "12:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Luis David Nuñez Santos":         [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Cirilo Reynoso Acevedo":          [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Enrique Nuñez Brito":             [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Luis Eduardo Reyes":              [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Bryhan Santo Cordero":            [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Wilkin Ortega Diaz":              [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Yan Carlos Cruz Paulino":         [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Fernando Antonio Burgos Cabrera": [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+  "Omelbe Gomez Valdez":             [{ hora: "10:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
+};
+
+// ── Almuerzo individual ───────────────────────────────────────
+// Todos tienen 1:00pm–2:00pm, tanto Lun–Jue como Viernes.
+// Sábados NO hay almuerzo (salen a las 12:00 antes del almuerzo).
 const INDIVIDUAL_PAUSES = {
-  "Omar Marmolejos Fajardo":          { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Jairo Fernandez Salcedo":          { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Ismael Augusto Veras Lasuse":      { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Fernando Antonio Burgos Cabrera":  { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Juan De Jesús Peña Pérez":         { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Luis David Nuñez Santos":          { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Yustin Alexander Mendez":          { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Luis Eduardo Reyes":               { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Omelbe Gomez Valdez":              { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Bryhan Santo Cordero":             { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Enrique Nuñez Brito":              { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Cirilo Reynoso Acevedo":           { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Yan Carlos Cruz Paulino":          { pausa: "13:00:00", reanuda: "14:00:00" },
-  "Wilkin Ortega Diaz":               { pausa: "13:00:00", reanuda: "14:00:00" }
-};
-
-// Hora de salida ANTICIPADA para algunos sacadores (salen antes que el resto)
-const HORAS_SALIDA_ANTICIPADA = {
-  "Omar Marmolejos Fajardo":         "18:00:00",
-  "Jairo Fernandez Salcedo":         "18:00:00",
-  "Ismael Augusto Veras Lasuse":     "18:00:00",
-  "Juan De Jesús Peña Pérez":        "18:00:00",
-  "Fernando Antonio Burgos Cabrera": "18:00:00"
+  "Elvin Manuel Villar Holguin":        { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Fernando Robles Grullon":            { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Clara Elvira Fanith Perez":          { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Omar Marmolejos Fajardo":            { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Jairo Fernandez Salcedo":            { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Ismael Augusto Veras Lasuse":        { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Fernando Antonio Burgos Cabrera":    { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Juan De Jesús Peña Pérez":           { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Luis David Nuñez Santos":            { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Yustin Alexander Mendez":            { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Luis Eduardo Reyes":                 { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Omelbe Gomez Valdez":                { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Bryhan Santo Cordero":               { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Enrique Nuñez Brito":                { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Cirilo Reynoso Acevedo":             { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Yan Carlos Cruz Paulino":            { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Wilkin Ortega Diaz":                 { pausa: "13:00:00", reanuda: "14:00:00" },
+  "Anyelo Morel Acosta":                { pausa: "13:00:00", reanuda: "14:00:00" },
 };
 
 const TODOS_LOS_SACADORES = [
+  "Elvin Manuel Villar Holguin",
+  "Fernando Robles Grullon",
+  "Clara Elvira Fanith Perez",
   "Omar Marmolejos Fajardo",
   "Jairo Fernandez Salcedo",
   "Ismael Augusto Veras Lasuse",
@@ -72,88 +136,86 @@ const TODOS_LOS_SACADORES = [
   "Enrique Nuñez Brito",
   "Cirilo Reynoso Acevedo",
   "Yan Carlos Cruz Paulino",
-  "Wilkin Ortega Diaz"
+  "Wilkin Ortega Diaz",
+  "Anyelo Morel Acosta",
 ];
 
 // ============================================================
 //  MOTOR DE TIEMPO LABORABLE
-//  calcularMsLaborables(sacador, desdeMs, hastaMs)
-//
-//  Devuelve los milisegundos que caen dentro del horario laboral
-//  del sacador entre dos timestamps absolutos.
-//
-//  Algoritmo:
-//    1. Divide el rango en segmentos de 1 segundo.
-//    2. Por cada segundo comprueba si ese instante es laborable
-//       usando esMomentoLaborable().
-//    3. Suma los segundos que lo son y convierte a ms.
-//
-//  Para rangos muy largos (p.ej. pedido que lleva días abierto)
-//  la función primero avanza en bloques de DÍA completo para
-//  sumar las horas laborables diarias en O(días) en vez de O(segundos),
-//  y sólo itera segundo a segundo dentro del día inicial y final
-//  parciales. Esto mantiene el rendimiento incluso tras un fin de semana.
 // ============================================================
 
-/**
- * Convierte "HH:MM:SS" a segundos desde medianoche.
- */
+function pad(n) { return String(n).padStart(2, "0"); }
+
 function hhmmssASeg(str) {
   const [h, m, s] = str.split(":").map(Number);
   return h * 3600 + m * 60 + (s || 0);
 }
 
 /**
- * Dado un Date y un sacador, devuelve los rangos [inicioSeg, finSeg]
- * (en segundos desde medianoche) en que ese sacador trabaja ese día.
- * Puede haber 0, 1 o 2 rangos (antes y después del almuerzo).
- * Domingo → siempre vacío.
- * Sábado  → solo hasta las 12:00.
+ * Devuelve los rangos [inicioSeg, finSeg] laborables del sacador
+ * para la fecha dada. Considera:
+ *   - Domingo / feriado → vacío
+ *   - Sábado sin horario → vacío
+ *   - Almuerzo individual
+ *   - Breaks de 10 min (solo Lun–Jue)
+ *   - Sábado NO tiene almuerzo ni breaks (salen a las 12:00)
  */
 function getRangosLaboralesDia(fecha, sacador) {
   const dia = fecha.getDay(); // 0=Dom … 6=Sáb
   if (dia === 0) return [];   // Domingo: no laborable
+  if (esFeriado(fecha)) return []; // Feriado: no laborable
 
-  const salidaDiaStr = HORA_SALIDA_DIA[dia];
-  if (!salidaDiaStr) return []; // seguridad
+  const salidaStr = getSalidaPersonal(sacador, dia);
+  if (!salidaStr) return []; // Este sacador no trabaja este día (ej: sábado sin sábado)
 
-  const entrada   = hhmmssASeg(HORA_ENTRADA);
-  let   salidaDia = hhmmssASeg(salidaDiaStr);
+  const entrada = hhmmssASeg(HORA_ENTRADA);
+  const salida  = hhmmssASeg(salidaStr);
 
-  // Salida anticipada personal (sólo si es menor que la general del día)
-  if (HORAS_SALIDA_ANTICIPADA[sacador]) {
-    const salidaAntic = hhmmssASeg(HORAS_SALIDA_ANTICIPADA[sacador]);
-    if (salidaAntic < salidaDia) salidaDia = salidaAntic;
+  // Recopilar todas las pausas como intervalos [inicio, fin] en segundos
+  const pausas = []; // { inicio, fin }
+
+  // Almuerzo (no aplica sábado porque salen a las 12:00 antes)
+  if (dia !== 6 && INDIVIDUAL_PAUSES[sacador]) {
+    pausas.push({
+      inicio: hhmmssASeg(INDIVIDUAL_PAUSES[sacador].pausa),
+      fin:    hhmmssASeg(INDIVIDUAL_PAUSES[sacador].reanuda)
+    });
   }
 
-  // Sin pausa de almuerzo → un solo rango
-  if (!INDIVIDUAL_PAUSES[sacador]) {
-    return [[entrada, salidaDia]];
+  // Breaks de 10 min (solo Lun–Jue)
+  if (dia >= 1 && dia <= 4 && BREAKS_10MIN[sacador]) {
+    for (const b of BREAKS_10MIN[sacador]) {
+      const ini = hhmmssASeg(b.hora);
+      const fin = ini + b.durMin * 60;
+      // Solo agregar si el break cae dentro del horario laboral
+      if (ini >= entrada && fin <= salida) {
+        pausas.push({ inicio: ini, fin });
+      }
+    }
   }
 
-  const pausaInicio = hhmmssASeg(INDIVIDUAL_PAUSES[sacador].pausa);
-  const pausaFin    = hhmmssASeg(INDIVIDUAL_PAUSES[sacador].reanuda);
+  // Ordenar pausas por inicio
+  pausas.sort((a, b) => a.inicio - b.inicio);
 
+  // Construir rangos laborables como complemento de las pausas
   const rangos = [];
-  if (entrada < pausaInicio) rangos.push([entrada, pausaInicio]);
-  if (pausaFin < salidaDia)  rangos.push([pausaFin, salidaDia]);
+  let cursor = entrada;
+  for (const p of pausas) {
+    if (p.inicio > cursor && p.inicio < salida) {
+      rangos.push([cursor, Math.min(p.inicio, salida)]);
+    }
+    cursor = Math.max(cursor, p.fin);
+  }
+  if (cursor < salida) rangos.push([cursor, salida]);
+
   return rangos;
 }
 
-/**
- * Devuelve los segundos laborables totales de un día completo
- * para un sacador dado.
- */
 function segLaboralesDia(fecha, sacador) {
   return getRangosLaboralesDia(fecha, sacador)
     .reduce((acc, [a, b]) => acc + Math.max(0, b - a), 0);
 }
 
-/**
- * Devuelve los segundos laborables entre dos timestamps (ms).
- * Eficiente: itera día a día en vez de segundo a segundo para
- * los días completos intermedios.
- */
 function calcularSegLaborables(sacador, desdeMs, hastaMs) {
   if (hastaMs <= desdeMs) return 0;
 
@@ -161,7 +223,6 @@ function calcularSegLaborables(sacador, desdeMs, hastaMs) {
   const desde = new Date(desdeMs);
   const hasta = new Date(hastaMs);
 
-  // ── Inicio del primer día (medianoche) ──
   const inicioDia = new Date(desde);
   inicioDia.setHours(0, 0, 0, 0);
 
@@ -171,15 +232,12 @@ function calcularSegLaborables(sacador, desdeMs, hastaMs) {
     const finDia = new Date(cursor);
     finDia.setHours(23, 59, 59, 999);
 
-    // Límite real de este día: el menor entre finDia y hastaMs
     const limSup = finDia < hasta ? finDia : hasta;
-    // Límite inferior real: el mayor entre cursor (00:00) y desde
     const limInf = cursor < desde ? desde : cursor;
 
     const rangos = getRangosLaboralesDia(cursor, sacador);
 
     for (const [rInicio, rFin] of rangos) {
-      // Convertir rangos de ese día a timestamps absolutos
       const rInicioMs = new Date(cursor).setHours(
         Math.floor(rInicio / 3600),
         Math.floor((rInicio % 3600) / 60),
@@ -191,7 +249,6 @@ function calcularSegLaborables(sacador, desdeMs, hastaMs) {
         rFin % 60, 0
       );
 
-      // Intersección del rango laboral con [limInf, limSup]
       const solapInicio = Math.max(rInicioMs, limInf.getTime());
       const solapFin    = Math.min(rFinMs,    limSup.getTime());
 
@@ -200,7 +257,6 @@ function calcularSegLaborables(sacador, desdeMs, hastaMs) {
       }
     }
 
-    // Avanzar al día siguiente (00:00:00)
     cursor.setDate(cursor.getDate() + 1);
     cursor.setHours(0, 0, 0, 0);
   }
@@ -208,10 +264,6 @@ function calcularSegLaborables(sacador, desdeMs, hastaMs) {
   return total;
 }
 
-/**
- * Comprueba si un instante (ms) es laborable para el sacador.
- * Usado sólo para el badge de "próxima pausa".
- */
 function esMomentoLaborable(sacador, tsMs) {
   const d   = new Date(tsMs);
   const seg = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
@@ -219,10 +271,138 @@ function esMomentoLaborable(sacador, tsMs) {
 }
 
 // ============================================================
+//  PANEL DE FERIADOS — UI integrada
+// ============================================================
+
+/**
+ * Abre el modal de gestión de feriados.
+ * Se invoca desde un botón en el header del app.
+ */
+function abrirPanelFeriados() {
+  let overlay = document.getElementById("modal-feriados-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "modal-feriados-overlay";
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal" id="modal-feriados" style="max-width:480px;">
+        <div class="modal-header">
+          <h3 class="modal-title">🗓 Días Feriados No Laborables</h3>
+          <button class="btn-delete" onclick="cerrarPanelFeriados()" title="Cerrar">✕</button>
+        </div>
+        <div class="modal-subtitle" id="feriados-subtitle">
+          Agrega las fechas que deben excluirse del cálculo de tiempo laborable.
+        </div>
+        <div id="modal-feriados-body" style="padding:16px 20px;"></div>
+        <div class="modal-footer" id="modal-feriados-footer"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.classList.add("open");
+  renderPanelFeriados();
+}
+
+function cerrarPanelFeriados() {
+  const overlay = document.getElementById("modal-feriados-overlay");
+  if (overlay) overlay.classList.remove("open");
+}
+
+function renderPanelFeriados() {
+  const body   = document.getElementById("modal-feriados-body");
+  const footer = document.getElementById("modal-feriados-footer");
+  const lista  = cargarFeriados().sort();
+
+  const itemsHTML = lista.length === 0
+    ? `<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px 0;">No hay feriados registrados.</p>`
+    : lista.map(f => {
+        const d = new Date(f + "T12:00:00"); // forzar mediodía para evitar off-by-one de TZ
+        const label = d.toLocaleDateString("es-DO", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+        return `
+          <div class="feriado-item" style="display:flex;align-items:center;justify-content:space-between;
+               padding:8px 10px;margin-bottom:6px;background:var(--surface2,#1e1e2e);
+               border-radius:8px;gap:8px;">
+            <span style="font-size:13px;">📅 <strong>${f}</strong> — ${label}</span>
+            <button class="btn-delete" style="font-size:11px;" onclick="eliminarFeriado('${f}')" title="Eliminar">✕</button>
+          </div>`;
+      }).join("");
+
+  body.innerHTML = `
+    ${itemsHTML}
+    <div style="margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="date" id="feriado-input"
+             style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border,#333);
+                    background:var(--surface2,#1e1e2e);color:inherit;font-size:13px;"
+             min="${new Date().getFullYear()}-01-01" />
+      <input type="text" id="feriado-nombre" placeholder="Nombre (opcional)"
+             style="flex:2;padding:8px 12px;border-radius:8px;border:1px solid var(--border,#333);
+                    background:var(--surface2,#1e1e2e);color:inherit;font-size:13px;" />
+    </div>
+    <p id="feriado-error" class="modal-hint error-msg" style="margin-top:6px;"></p>
+  `;
+
+  footer.innerHTML = `
+    <div style="display:flex;gap:10px;justify-content:flex-end;padding:12px 20px;">
+      <button class="modal-btn secondary" onclick="cerrarPanelFeriados()">Cerrar</button>
+      <button class="modal-btn primary"   onclick="agregarFeriado()">+ Agregar Feriado</button>
+    </div>
+  `;
+}
+
+function agregarFeriado() {
+  const input    = document.getElementById("feriado-input");
+  const errorEl  = document.getElementById("feriado-error");
+  const fecha    = input.value.trim();
+
+  if (!fecha) {
+    errorEl.textContent = "Selecciona una fecha.";
+    errorEl.classList.add("visible");
+    input.focus();
+    return;
+  }
+
+  const lista = cargarFeriados();
+  if (lista.includes(fecha)) {
+    errorEl.textContent = "Esa fecha ya está registrada.";
+    errorEl.classList.add("visible");
+    return;
+  }
+
+  lista.push(fecha);
+  guardarFeriados(lista);
+  mostrarToast(`📅 Feriado agregado: ${fecha}`, "info");
+  renderPanelFeriados();
+}
+
+function eliminarFeriado(fecha) {
+  const lista = cargarFeriados().filter(f => f !== fecha);
+  guardarFeriados(lista);
+  mostrarToast(`🗑 Feriado eliminado: ${fecha}`, "warn");
+  renderPanelFeriados();
+}
+
+// Feriados dominicanos fijos para pre-cargar si no hay ninguno guardado
+const FERIADOS_RD_2025 = [
+  "2025-01-01","2025-01-06","2025-01-21","2025-02-27","2025-04-14",
+  "2025-04-18","2025-05-01","2025-06-19","2025-08-16","2025-09-24",
+  "2025-11-06","2025-12-25"
+];
+const FERIADOS_RD_2026 = [
+  "2026-01-01","2026-01-06","2026-01-26","2026-02-27","2026-04-03",
+  "2026-04-06","2026-05-01","2026-06-29","2026-08-16","2026-09-24",
+  "2026-11-06","2026-12-25"
+];
+
+function precargarFeriadosRD() {
+  if (cargarFeriados().length === 0) {
+    guardarFeriados([...FERIADOS_RD_2025, ...FERIADOS_RD_2026]);
+    console.log("✅ Feriados dominicanos 2025-2026 precargados.");
+  }
+}
+
+// ============================================================
 //  UTILIDADES DE FORMATO
 // ============================================================
-function pad(n) { return String(n).padStart(2, "0"); }
-
 function formatDateTime(date) {
   if (!(date instanceof Date)) date = new Date(date);
   return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ` +
@@ -247,26 +427,11 @@ window.formatDateTime = formatDateTime;
 window.formatTime     = formatTime;
 
 // ============================================================
-//  CÁLCULO DE ELAPSED — ahora basado en horas laborables
-//
-//  El pedido lleva un array "segmentos" con los tramos en que
-//  estuvo ACTIVO (no pausado). Cada segmento: { inicio, fin? }
-//  fin=null significa que sigue corriendo ahora mismo.
-//
-//  calcularElapsedMs suma los segundos laborables de cada segmento
-//  y los convierte a ms para mantener compatibilidad con el resto
-//  del código que espera milisegundos.
+//  CÁLCULO DE ELAPSED
 // ============================================================
-
-/**
- * Devuelve los ms de tiempo LABORABLE acumulados del pedido.
- * Si el pedido está finalizado, usa elapsedMsFinal (precalculado).
- */
 function calcularElapsedMs(data, nowMs) {
   if (data.finalizado) return data.elapsedMsFinal || 0;
 
-  // Compatibilidad con pedidos guardados con el esquema antiguo
-  // (sin array segmentos): construir un segmento sintético.
   if (!data.segmentos || data.segmentos.length === 0) {
     _migrarASegmentos(data, nowMs);
   }
@@ -279,26 +444,16 @@ function calcularElapsedMs(data, nowMs) {
   return totalSeg * 1000;
 }
 
-/**
- * Migración on-the-fly: convierte un pedido en esquema antiguo
- * (startTimestamp + pausedDuration) al nuevo esquema de segmentos.
- * Solo se llama una vez; después el pedido ya tiene segmentos.
- */
 function _migrarASegmentos(data, nowMs) {
-  // Construimos un único segmento que cubre desde el inicio real
-  // hasta ahora (o hasta pausedAt si está pausado).
-  // No intentamos reconstruir las micro-pausas pasadas; simplemente
-  // arrancamos desde startTimestamp ignorando pausedDuration antigua.
   const inicio = data.startTimestamp || (nowMs - (data.elapsedSnapshot || 0));
   const fin    = data.paused ? (data.pausedAt || nowMs) : null;
   data.segmentos = [{ inicio, fin }];
-  // Limpiar campos del esquema viejo para no confundir
   data.pausedDuration = 0;
   data.pausedAt       = data.paused ? (data.pausedAt || nowMs) : null;
 }
 
 // ============================================================
-//  TIMER — ahora actualiza en base a tiempo laborable
+//  TIMER
 // ============================================================
 function iniciarTimer(index) {
   if (timers[index]) clearInterval(timers[index]);
@@ -330,6 +485,7 @@ function actualizarStats() {
 
 // ============================================================
 //  BADGE DE PRÓXIMA PAUSA
+//  Ahora incluye breaks de 10 min como eventos del día
 // ============================================================
 function getFutureTime(date, timeStr) {
   const [h, m, s] = timeStr.split(":").map(Number);
@@ -338,24 +494,27 @@ function getFutureTime(date, timeStr) {
 
 function calcularProximaPausa(sacador, now) {
   const eventos = [];
+  const dia = now.getDay();
 
-  // Almuerzo individual
-  if (INDIVIDUAL_PAUSES[sacador]) {
+  // Almuerzo individual (no sábado)
+  if (dia !== 6 && INDIVIDUAL_PAUSES[sacador]) {
     const p = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
     if (p > now) eventos.push({ label: "🍽 Almuerzo", time: p, tipo: "almuerzo" });
   }
 
-  // Salida del día (general)
-  const dia = now.getDay();
-  if (HORA_SALIDA_DIA[dia]) {
-    const p = getFutureTime(now, HORA_SALIDA_DIA[dia]);
-    if (p > now) eventos.push({ label: "🚪 Salida", time: p, tipo: "salida" });
+  // Breaks de 10 min (solo Lun–Jue)
+  if (dia >= 1 && dia <= 4 && BREAKS_10MIN[sacador]) {
+    for (const b of BREAKS_10MIN[sacador]) {
+      const p = getFutureTime(now, b.hora);
+      if (p > now) eventos.push({ label: `☕ Break ${b.durMin}min`, time: p, tipo: "break" });
+    }
   }
 
-  // Salida anticipada personal
-  if (HORAS_SALIDA_ANTICIPADA[sacador]) {
-    const p = getFutureTime(now, HORAS_SALIDA_ANTICIPADA[sacador]);
-    if (p > now) eventos.push({ label: "🚪 Salida anticipada", time: p, tipo: "salida" });
+  // Salida del día
+  const salidaStr = getSalidaPersonal(sacador, dia);
+  if (salidaStr) {
+    const p = getFutureTime(now, salidaStr);
+    if (p > now) eventos.push({ label: "🚪 Salida", time: p, tipo: "salida" });
   }
 
   if (!eventos.length) return null;
@@ -390,9 +549,6 @@ function iniciarBadgeTimer(index) {
 
 // ============================================================
 //  PAUSA / REANUDACIÓN
-//  Con el nuevo esquema de segmentos:
-//    pausar  → cierra el segmento activo (seg.fin = ahora)
-//    reanudar → abre un nuevo segmento    (seg.inicio = ahora, fin = null)
 // ============================================================
 function autoPause(index, tipo = "manual") {
   const data = pausedTimers[index];
@@ -402,10 +558,7 @@ function autoPause(index, tipo = "manual") {
   data.paused    = true;
   data.tipoPausa = tipo;
 
-  // Garantizar que segmentos exista
   if (!data.segmentos) _migrarASegmentos(data, ahora);
-
-  // Cerrar el último segmento abierto
   const ultimo = data.segmentos[data.segmentos.length - 1];
   if (ultimo && ultimo.fin === null) ultimo.fin = ahora;
 
@@ -421,11 +574,7 @@ function autoReanudar(index) {
   if (!data || !data.paused || data.finalizado) return;
 
   const ahora = Date.now();
-
-  // Garantizar que segmentos exista
   if (!data.segmentos) _migrarASegmentos(data, ahora);
-
-  // Abrir nuevo segmento
   data.segmentos.push({ inicio: ahora, fin: null });
   data.paused    = false;
   data.reanudado = true;
@@ -445,7 +594,7 @@ function reanudarTodos() { for (let i in pausedTimers) autoReanudar(i); }
 
 // ============================================================
 //  PROGRAMAR PAUSAS AUTOMÁTICAS
-//  Igual que antes pero usando los mismos datos centralizados.
+//  Ahora incluye los breaks de 10 min
 // ============================================================
 function addDays(date, d) {
   const nd = new Date(date);
@@ -453,40 +602,51 @@ function addDays(date, d) {
   return nd;
 }
 
+/**
+ * Calcula cuántos días hay que avanzar para llegar al próximo
+ * día laborable (no domingo, no feriado).
+ */
+function diasHastaProximoLaborable(desde) {
+  let dias = 1;
+  while (dias <= 7) {
+    const candidato = addDays(desde, dias);
+    if (candidato.getDay() !== 0 && !esFeriado(candidato)) return dias;
+    dias++;
+  }
+  return 1;
+}
+
 function programarPausas(index, sacador, now) {
   const dia = now.getDay();
 
-  // ── Almuerzo individual ──
-  if (INDIVIDUAL_PAUSES[sacador]) {
+  // ── Almuerzo individual (no sábado) ──
+  if (dia !== 6 && INDIVIDUAL_PAUSES[sacador]) {
     const p1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
     const r1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].reanuda);
     if (p1 > now) setTimeout(() => autoPause(index, "almuerzo"),  p1 - now);
     if (r1 > now) setTimeout(() => autoReanudar(index),           r1 - now);
   }
 
-  // ── Salida general del día ──
-  if (HORA_SALIDA_DIA[dia]) {
-    const pausaGeneral = getFutureTime(now, HORA_SALIDA_DIA[dia]);
-    // Sábado → reanuda el lunes; resto → reanuda el día siguiente
-    const diasHastaLunes = dia === 6 ? 2 : 1;
-    const reanuda = getFutureTime(addDays(now, diasHastaLunes), HORA_ENTRADA);
-    if (pausaGeneral > now) setTimeout(() => autoPause(index, "salida"),  pausaGeneral - now);
-    if (reanuda      > now) setTimeout(() => autoReanudar(index),         reanuda - now);
+  // ── Breaks de 10 min (solo Lun–Jue) ──
+  if (dia >= 1 && dia <= 4 && BREAKS_10MIN[sacador]) {
+    for (const b of BREAKS_10MIN[sacador]) {
+      const pBreak = getFutureTime(now, b.hora);
+      const rBreak = new Date(pBreak.getTime() + b.durMin * 60 * 1000);
+      if (pBreak > now) setTimeout(() => autoPause(index, "break"),  pBreak - now);
+      if (rBreak > now) setTimeout(() => autoReanudar(index),        rBreak - now);
+    }
   }
 
-  // ── Salida anticipada personal (si aplica y es antes de la general) ──
-  if (HORAS_SALIDA_ANTICIPADA[sacador]) {
-    const salidaAntic  = getFutureTime(now, HORAS_SALIDA_ANTICIPADA[sacador]);
-    const salidaGeneral = HORA_SALIDA_DIA[dia]
-      ? getFutureTime(now, HORA_SALIDA_DIA[dia])
-      : null;
-    // Solo programar si es estrictamente antes de la salida general
-    if (salidaAntic > now && (!salidaGeneral || salidaAntic < salidaGeneral)) {
-      const diasHastaLunes = dia === 6 ? 2 : 1;
-      const reanuda = getFutureTime(addDays(now, diasHastaLunes), HORA_ENTRADA);
-      setTimeout(() => autoPause(index, "salida anticipada"), salidaAntic - now);
-      if (reanuda > now) setTimeout(() => autoReanudar(index), reanuda - now);
-    }
+  // ── Salida del día ──
+  const salidaStr = getSalidaPersonal(sacador, dia);
+  if (salidaStr) {
+    const pausaSalida = getFutureTime(now, salidaStr);
+    const diasHasta   = (dia === 6)
+      ? diasHastaProximoLaborable(now)  // sábado → lunes (o el siguiente laborable)
+      : diasHastaProximoLaborable(now); // resto → día siguiente laborable
+    const reanuda = getFutureTime(addDays(now, diasHasta), HORA_ENTRADA);
+    if (pausaSalida > now) setTimeout(() => autoPause(index, "salida"),  pausaSalida - now);
+    if (reanuda     > now) setTimeout(() => autoReanudar(index),         reanuda - now);
   }
 }
 
@@ -505,6 +665,9 @@ function agregarPedido() {
   if (now.getDay() === 0) {
     mostrarToast("🚫 Los domingos no se pueden iniciar pedidos.", "error"); return;
   }
+  if (esFeriado(now)) {
+    mostrarToast("🚫 Hoy es un día feriado no laborable.", "error"); return;
+  }
 
   const nowMs = now.getTime();
   const index = nowMs;
@@ -512,7 +675,6 @@ function agregarPedido() {
   const pedidoData = {
     index, codigo, sacador, cantidad,
     startTimestamp: nowMs,
-    // ── nuevo esquema de segmentos ──
     segmentos:      [{ inicio: nowMs, fin: null }],
     paused:         false,
     tipoPausa:      null,
@@ -520,7 +682,6 @@ function agregarPedido() {
     finalizado:     false,
     tiempoPorProducto: null,
     elapsedMsFinal: 0,
-    // ── equipo ──
     tieneEquipo:    false,
     liderId:        sacador,
     auxiliares:     []
@@ -570,7 +731,7 @@ function _crearPedidoFinal(pedidoData) {
 }
 
 // ============================================================
-//  MODAL EQUIPO — al superar el umbral
+//  MODAL EQUIPO
 // ============================================================
 let _equipoAuxContador = 0;
 
@@ -670,7 +831,7 @@ function cerrarModalEquipo() {
 }
 
 // ============================================================
-//  MODAL AUXILIAR — agregar a pedido existente
+//  MODAL AUXILIAR
 // ============================================================
 let _auxTargetIndex = null;
 
@@ -732,7 +893,7 @@ function confirmarAgregarAux() {
 }
 
 // ============================================================
-//  RENDERIZAR SECCIÓN EQUIPO EN LA TARJETA
+//  RENDERIZAR SECCIÓN EQUIPO
 // ============================================================
 function _actualizarSeccionEquipo(index) {
   const data = pausedTimers[index];
@@ -860,7 +1021,7 @@ function _agregarBtnAuxSuelto(index) {
 }
 
 // ============================================================
-//  MODAL FINALIZAR — 4 pasos
+//  MODAL FINALIZAR
 // ============================================================
 let modalIndex      = null;
 let modalStep       = 1;
@@ -1002,7 +1163,6 @@ function confirmarFinalizar() {
 
   cerrarModal();
 
-  // Cerrar el segmento activo si el pedido no estaba pausado
   if (!data.paused) {
     if (!data.segmentos) _migrarASegmentos(data, now.getTime());
     const ultimo = data.segmentos[data.segmentos.length - 1];
@@ -1046,9 +1206,9 @@ function confirmarFinalizar() {
   if (tppEl)   tppEl.textContent = tiempoFormateado;
   if (badgeEl) badgeEl.style.display = "none";
 
-  const teamSection   = document.getElementById(`team-section-${index}`);
+  const teamSection  = document.getElementById(`team-section-${index}`);
   if (teamSection) { const b = teamSection.querySelector(".btn-add-aux"); if (b) b.remove(); }
-  const btnAuxSuelto  = card ? card.querySelector(".btn-add-aux") : null;
+  const btnAuxSuelto = card ? card.querySelector(".btn-add-aux") : null;
   if (btnAuxSuelto) btnAuxSuelto.remove();
 
   guardarPedidos();
@@ -1060,11 +1220,9 @@ function confirmarFinalizar() {
     ? [data.liderId || data.sacador, ...auxList.map(a => typeof a === "string" ? a : a.nombre)].join(", ")
     : data.sacador;
 
-  // ── Calcular tiempo laborable individual de cada auxiliar ──
   const auxDetalles = auxList.map(a => {
     const nombre   = typeof a === "string" ? a : a.nombre;
     const joinedAt = (typeof a === "object" && a.joinedAt) ? a.joinedAt : data.startTimestamp;
-    // El auxiliar trabajó desde joinedAt hasta endTs, pero solo las horas laborables
     const tiempoAuxSeg = calcularSegLaborables(nombre, joinedAt, endTs);
     const tppAux = cantidadSacada > 0
       ? formatTime(Math.floor(tiempoAuxSeg / cantidadSacada))
@@ -1079,7 +1237,6 @@ function confirmarFinalizar() {
     "success"
   );
 
-  // ── Historial: líder ──
   fetch(API_HOJA_HISTORIAL, {
     method: "POST", mode: "cors",
     headers: { "Content-Type": "application/json" },
@@ -1099,7 +1256,6 @@ function confirmarFinalizar() {
     })
   }).catch(err => console.error("❌ Error historial (líder):", err));
 
-  // ── Historial: un registro por auxiliar con su tiempo laborable real ──
   auxDetalles.forEach(aux => {
     fetch(API_HOJA_HISTORIAL, {
       method: "POST", mode: "cors",
@@ -1122,7 +1278,6 @@ function confirmarFinalizar() {
     }).catch(err => console.error(`❌ Error historial (aux ${aux.nombre}):`, err));
   });
 
-  // ── Actualizar hoja proceso ──
   fetch(`${API_HOJA_PROCESO}/search?NumeroPedido=${encodeURIComponent(data.codigo)}`, {
     method: "PATCH", mode: "cors",
     headers: { "Content-Type": "application/json" },
@@ -1201,8 +1356,6 @@ function eliminarTodos() {
 
 // ============================================================
 //  PERSISTENCIA
-//  guardarPedidos: guarda el array de segmentos tal cual.
-//  reconstruirPedido: migra pedidos del esquema viejo al nuevo.
 // ============================================================
 function guardarPedidos() {
   localStorage.setItem("pedidos", JSON.stringify(pausedTimers));
@@ -1211,72 +1364,32 @@ function guardarPedidos() {
 function reconstruirPedido(pedido) {
   const index = pedido.index;
 
-  // ── Compatibilidad: convertir esquema viejo al nuevo de segmentos ──
-  //
-  //  El esquema viejo guardaba:
-  //    startTimestamp  → timestamp real de inicio
-  //    elapsedSnapshot → ms acumulados LABORABLES hasta el momento de guardar
-  //    savedAt         → timestamp en que se guardó
-  //    pausedDuration  → ms totales de pausa manual acumulados
-  //    pausedAt        → timestamp en que se pausó (si estaba pausado)
-  //    paused          → boolean
-  //
-  //  Con esos datos reconstruimos dos segmentos sintéticos que representan
-  //  con la mayor fidelidad posible el tiempo real trabajado:
-  //
-  //    Segmento A:  [startTimestamp  →  savedAt]   (tramo "antes del cierre")
-  //    Segmento B:  [savedAt         →  ahora]     (tramo "mientras estuvo cerrado")
-  //                  (solo si no estaba pausado al guardar)
-  //
-  //  Esto es mucho más preciso que un único segmento desde startTimestamp
-  //  porque calcularSegLaborables ignorará automáticamente noches, fines de
-  //  semana y pausas de almuerzo dentro de cada segmento.
-  //
-  //  NOTA: los pedidos FINALIZADOS ya tienen elapsedMsFinal calculado con el
-  //  motor viejo, así que los respetamos tal cual y solo creamos segmentos
-  //  decorativos para no romper el renderizado.
-
   if (!pedido.segmentos || pedido.segmentos.length === 0) {
     const ahora = Date.now();
 
     if (pedido.finalizado) {
-      // Pedido ya cerrado: conservar elapsedMsFinal del cálculo original.
-      // Segmento decorativo que abarca inicio→fin real.
       pedido.segmentos = [{
         inicio: pedido.startTimestamp || ahora,
         fin:    pedido.endTimestamp   || ahora
       }];
-
     } else if (pedido.paused) {
-      // Estaba pausado cuando se guardó.
-      // savedAt y pausedAt deberían ser casi iguales; usamos pausedAt como
-      // cierre del único segmento que podemos garantizar.
       const inicioReal = pedido.startTimestamp || ahora;
       const finReal    = pedido.pausedAt       || pedido.savedAt || ahora;
       pedido.segmentos = [{ inicio: inicioReal, fin: finReal }];
-
     } else {
-      // Estaba ACTIVO cuando se guardó.
-      // Construimos dos segmentos:
-      //   1. inicio real → savedAt  (tiempo antes del cierre de pestaña/reload)
-      //   2. savedAt     → ahora    (tiempo que transcurrió mientras estaba cerrado)
-      // calcularSegLaborables se encargará de ignorar lo no-laborable en ambos.
       const inicioReal = pedido.startTimestamp || ahora;
       const savedAt    = pedido.savedAt        || ahora;
       pedido.segmentos = [
-        { inicio: inicioReal, fin: savedAt },  // tramo antes del reload
-        { inicio: savedAt,    fin: null    }   // tramo desde que se reabrió
+        { inicio: inicioReal, fin: savedAt },
+        { inicio: savedAt,    fin: null    }
       ];
     }
 
-    // Limpiar campos del esquema viejo para que no generen confusión
     delete pedido.elapsedSnapshot;
     delete pedido.savedAt;
     delete pedido.pausedDuration;
-    // startTimestamp y pausedAt se conservan porque otras partes del código los usan
   }
 
-  // ── Compatibilidad: auxiliares como strings → objetos ──
   if (!pedido.auxiliares)  pedido.auxiliares  = [];
   if (!pedido.liderId)     pedido.liderId     = pedido.sacador;
   if (pedido.tieneEquipo === undefined) pedido.tieneEquipo = false;
@@ -1348,6 +1461,7 @@ function verificarMesActual() {
 //  INICIALIZACIÓN
 // ============================================================
 window.onload = () => {
+  precargarFeriadosRD();           // Precarga feriados RD 2025-2026 si no hay ninguno
   verificarMesActual();
   const saved = JSON.parse(localStorage.getItem("pedidos")) || {};
   Object.values(saved).forEach(pedido => reconstruirPedido(pedido));
