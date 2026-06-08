@@ -86,15 +86,7 @@ function getRangosConExtras(fecha, sacador, rangosBase) {
 
 // Esperamos a que el DOM cargue para parchear,
 // así script.js ya definió su versión primero.
-window.addEventListener("load", () => {
-  // Guardamos la referencia REAL de script.js en una variable local cerrada
-  const _original = window.getRangosLaboralesDia.bind({});
 
-  window.getRangosLaboralesDia = function(fecha, sacador) {
-    const rangosBase = _original(fecha, sacador);
-    return getRangosConExtras(fecha, sacador, rangosBase);
-  };
-}, { once: true });
 
 // También parchear esMomentoLaborable para que los domingos
 // con día especial se consideren laborables.
