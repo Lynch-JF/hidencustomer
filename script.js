@@ -12,9 +12,6 @@ let pausedTimers = {};
 
 // ============================================================
 //  DÍAS FERIADOS
-//  Formato: "YYYY-MM-DD"
-//  Se pueden agregar/editar desde el panel de Feriados (UI).
-//  También se pueden hardcodear aquí para el año en curso.
 // ============================================================
 function cargarFeriados() {
   try {
@@ -33,17 +30,9 @@ function esFeriado(fecha) {
 
 // ============================================================
 //  HORARIOS LABORABLES
-//  — Diferenciados por persona y día de la semana —
 // ============================================================
-
-// Hora de ENTRADA general (todos los días laborables)
 const HORA_ENTRADA = "08:00:00";
 
-// ── Salida por persona y día ──────────────────────────────────
-// Claves: nombre → { lun_jue, vie, sab }
-// lun_jue: hora de salida de lunes a jueves
-// vie    : hora de salida los viernes
-// sab    : hora de salida los sábados (null = no trabaja sábado)
 const HORARIO_SALIDA_PERSONAL = {
   "Elvin Manuel Villar Holguin":        { lun_jue: "18:00:00", vie: "17:00:00", sab: null         },
   "Fernando Robles Grullon":            { lun_jue: "17:00:00", vie: "17:00:00", sab: null         },
@@ -65,21 +54,17 @@ const HORARIO_SALIDA_PERSONAL = {
   "Yustin Alexander Mendez":            { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00"   },
 };
 
-// Fallback para sacadores no listados explícitamente
 const HORARIO_SALIDA_DEFAULT = { lun_jue: "18:00:00", vie: "17:00:00", sab: "12:00:00" };
 
 function getSalidaPersonal(sacador, dia) {
   const h = HORARIO_SALIDA_PERSONAL[sacador] || HORARIO_SALIDA_DEFAULT;
-  if (dia >= 1 && dia <= 4) return h.lun_jue; // Lun–Jue
-  if (dia === 5)             return h.vie;     // Viernes
-  if (dia === 6)             return h.sab;     // Sábado (null = no trabaja)
-  return null;                                 // Domingo
+  if (dia >= 1 && dia <= 4) return h.lun_jue;
+  if (dia === 5)             return h.vie;
+  if (dia === 6)             return h.sab;
+  return null;
 }
 
 // ── Breaks de 10 minutos ─────────────────────────────────────
-// Cada break: { hora: "HH:MM:SS", duracion: 600 }  (600 seg = 10 min)
-// Se definen por persona. Solo aplican en días Lun–Jue.
-// Los días Vie y Sáb NO tienen estos breaks según el horario.
 const BREAKS_10MIN = {
   "Omar Marmolejos Fajardo":         [{ hora: "10:00:00", durMin: 10 }, { hora: "12:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
   "Jairo Fernandez Salcedo":         [{ hora: "10:00:00", durMin: 10 }, { hora: "12:00:00", durMin: 10 }, { hora: "16:00:00", durMin: 10 }],
@@ -96,8 +81,6 @@ const BREAKS_10MIN = {
 };
 
 // ── Almuerzo individual ───────────────────────────────────────
-// Todos tienen 1:00pm–2:00pm, tanto Lun–Jue como Viernes.
-// Sábados NO hay almuerzo (salen a las 12:00 antes del almuerzo).
 const INDIVIDUAL_PAUSES = {
   "Elvin Manuel Villar Holguin":        { pausa: "13:00:00", reanuda: "14:00:00" },
   "Fernando Robles Grullon":            { pausa: "13:00:00", reanuda: "14:00:00" },
@@ -143,7 +126,6 @@ const TODOS_LOS_SACADORES = [
 // ============================================================
 //  MOTOR DE TIEMPO LABORABLE
 // ============================================================
-
 function pad(n) { return String(n).padStart(2, "0"); }
 
 function hhmmssASeg(str) {
@@ -153,28 +135,23 @@ function hhmmssASeg(str) {
 
 /**
  * Devuelve los rangos [inicioSeg, finSeg] laborables del sacador
- * para la fecha dada. Considera:
- *   - Domingo / feriado → vacío
- *   - Sábado sin horario → vacío
- *   - Almuerzo individual
- *   - Breaks de 10 min (solo Lun–Jue)
- *   - Sábado NO tiene almuerzo ni breaks (salen a las 12:00)
+ * para la fecha dada. Al final delega en getRangosConExtras si
+ * el módulo horasextras.js está cargado.
  */
 function getRangosLaboralesDia(fecha, sacador) {
-  const dia = fecha.getDay(); // 0=Dom … 6=Sáb
-  if (dia === 0) return [];   // Domingo: no laborable
-  if (esFeriado(fecha)) return []; // Feriado: no laborable
+  const dia = fecha.getDay();
+  if (dia === 0) return [];
+  if (esFeriado(fecha)) return [];
 
   const salidaStr = getSalidaPersonal(sacador, dia);
-  if (!salidaStr) return []; // Este sacador no trabaja este día (ej: sábado sin sábado)
+  if (!salidaStr) return [];
 
   const entrada = hhmmssASeg(HORA_ENTRADA);
   const salida  = hhmmssASeg(salidaStr);
 
-  // Recopilar todas las pausas como intervalos [inicio, fin] en segundos
-  const pausas = []; // { inicio, fin }
+  const pausas = [];
 
-  // Almuerzo (no aplica sábado porque salen a las 12:00 antes)
+  // Almuerzo (no aplica sábado)
   if (dia !== 6 && INDIVIDUAL_PAUSES[sacador]) {
     pausas.push({
       inicio: hhmmssASeg(INDIVIDUAL_PAUSES[sacador].pausa),
@@ -187,17 +164,14 @@ function getRangosLaboralesDia(fecha, sacador) {
     for (const b of BREAKS_10MIN[sacador]) {
       const ini = hhmmssASeg(b.hora);
       const fin = ini + b.durMin * 60;
-      // Solo agregar si el break cae dentro del horario laboral
       if (ini >= entrada && fin <= salida) {
         pausas.push({ inicio: ini, fin });
       }
     }
   }
 
-  // Ordenar pausas por inicio
   pausas.sort((a, b) => a.inicio - b.inicio);
 
-  // Construir rangos laborables como complemento de las pausas
   const rangos = [];
   let cursor = entrada;
   for (const p of pausas) {
@@ -208,6 +182,10 @@ function getRangosLaboralesDia(fecha, sacador) {
   }
   if (cursor < salida) rangos.push([cursor, salida]);
 
+  // ── Delegar en horasextras.js si está cargado ──
+  if (typeof getRangosConExtras === "function") {
+    return getRangosConExtras(fecha, sacador, rangos);
+  }
   return rangos;
 }
 
@@ -271,13 +249,8 @@ function esMomentoLaborable(sacador, tsMs) {
 }
 
 // ============================================================
-//  PANEL DE FERIADOS — UI integrada
+//  PANEL DE FERIADOS — UI
 // ============================================================
-
-/**
- * Abre el modal de gestión de feriados.
- * Se invoca desde un botón en el header del app.
- */
 function abrirPanelFeriados() {
   let overlay = document.getElementById("modal-feriados-overlay");
   if (!overlay) {
@@ -316,7 +289,7 @@ function renderPanelFeriados() {
   const itemsHTML = lista.length === 0
     ? `<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px 0;">No hay feriados registrados.</p>`
     : lista.map(f => {
-        const d = new Date(f + "T12:00:00"); // forzar mediodía para evitar off-by-one de TZ
+        const d = new Date(f + "T12:00:00");
         const label = d.toLocaleDateString("es-DO", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
         return `
           <div class="feriado-item" style="display:flex;align-items:center;justify-content:space-between;
@@ -381,7 +354,6 @@ function eliminarFeriado(fecha) {
   renderPanelFeriados();
 }
 
-// Feriados dominicanos fijos para pre-cargar si no hay ninguno guardado
 const FERIADOS_RD_2025 = [
   "2025-01-01","2025-01-06","2025-01-21","2025-02-27","2025-04-14",
   "2025-04-18","2025-05-01","2025-06-19","2025-08-16","2025-09-24",
@@ -485,7 +457,6 @@ function actualizarStats() {
 
 // ============================================================
 //  BADGE DE PRÓXIMA PAUSA
-//  Ahora incluye breaks de 10 min como eventos del día
 // ============================================================
 function getFutureTime(date, timeStr) {
   const [h, m, s] = timeStr.split(":").map(Number);
@@ -496,13 +467,11 @@ function calcularProximaPausa(sacador, now) {
   const eventos = [];
   const dia = now.getDay();
 
-  // Almuerzo individual (no sábado)
   if (dia !== 6 && INDIVIDUAL_PAUSES[sacador]) {
     const p = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
     if (p > now) eventos.push({ label: "🍽 Almuerzo", time: p, tipo: "almuerzo" });
   }
 
-  // Breaks de 10 min (solo Lun–Jue)
   if (dia >= 1 && dia <= 4 && BREAKS_10MIN[sacador]) {
     for (const b of BREAKS_10MIN[sacador]) {
       const p = getFutureTime(now, b.hora);
@@ -510,7 +479,6 @@ function calcularProximaPausa(sacador, now) {
     }
   }
 
-  // Salida del día
   const salidaStr = getSalidaPersonal(sacador, dia);
   if (salidaStr) {
     const p = getFutureTime(now, salidaStr);
@@ -594,7 +562,6 @@ function reanudarTodos() { for (let i in pausedTimers) autoReanudar(i); }
 
 // ============================================================
 //  PROGRAMAR PAUSAS AUTOMÁTICAS
-//  Ahora incluye los breaks de 10 min
 // ============================================================
 function addDays(date, d) {
   const nd = new Date(date);
@@ -602,10 +569,6 @@ function addDays(date, d) {
   return nd;
 }
 
-/**
- * Calcula cuántos días hay que avanzar para llegar al próximo
- * día laborable (no domingo, no feriado).
- */
 function diasHastaProximoLaborable(desde) {
   let dias = 1;
   while (dias <= 7) {
@@ -619,7 +582,6 @@ function diasHastaProximoLaborable(desde) {
 function programarPausas(index, sacador, now) {
   const dia = now.getDay();
 
-  // ── Almuerzo individual (no sábado) ──
   if (dia !== 6 && INDIVIDUAL_PAUSES[sacador]) {
     const p1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].pausa);
     const r1 = getFutureTime(now, INDIVIDUAL_PAUSES[sacador].reanuda);
@@ -627,7 +589,6 @@ function programarPausas(index, sacador, now) {
     if (r1 > now) setTimeout(() => autoReanudar(index),           r1 - now);
   }
 
-  // ── Breaks de 10 min (solo Lun–Jue) ──
   if (dia >= 1 && dia <= 4 && BREAKS_10MIN[sacador]) {
     for (const b of BREAKS_10MIN[sacador]) {
       const pBreak = getFutureTime(now, b.hora);
@@ -637,14 +598,11 @@ function programarPausas(index, sacador, now) {
     }
   }
 
-  // ── Salida del día ──
   const salidaStr = getSalidaPersonal(sacador, dia);
   if (salidaStr) {
     const pausaSalida = getFutureTime(now, salidaStr);
-    const diasHasta   = (dia === 6)
-      ? diasHastaProximoLaborable(now)  // sábado → lunes (o el siguiente laborable)
-      : diasHastaProximoLaborable(now); // resto → día siguiente laborable
-    const reanuda = getFutureTime(addDays(now, diasHasta), HORA_ENTRADA);
+    const diasHasta   = diasHastaProximoLaborable(now);
+    const reanuda     = getFutureTime(addDays(now, diasHasta), HORA_ENTRADA);
     if (pausaSalida > now) setTimeout(() => autoPause(index, "salida"),  pausaSalida - now);
     if (reanuda     > now) setTimeout(() => autoReanudar(index),         reanuda - now);
   }
@@ -662,9 +620,15 @@ function agregarPedido() {
   if (!codigo || !sacador || isNaN(cantidad) || cantidad <= 0) {
     mostrarToast("⚠️ Completa todos los campos correctamente.", "warn"); return;
   }
+
+  // Domingo: bloquear salvo que horasextras.js habilite un día especial
   if (now.getDay() === 0) {
-    mostrarToast("🚫 Los domingos no se pueden iniciar pedidos.", "error"); return;
+    const tieneEspecial = typeof _tieneDiaEspecialHoy === "function" && _tieneDiaEspecialHoy(sacador);
+    if (!tieneEspecial) {
+      mostrarToast("🚫 Los domingos no se pueden iniciar pedidos.", "error"); return;
+    }
   }
+
   if (esFeriado(now)) {
     mostrarToast("🚫 Hoy es un día feriado no laborable.", "error"); return;
   }
@@ -1461,7 +1425,7 @@ function verificarMesActual() {
 //  INICIALIZACIÓN
 // ============================================================
 window.onload = () => {
-  precargarFeriadosRD();           // Precarga feriados RD 2025-2026 si no hay ninguno
+  precargarFeriadosRD();
   verificarMesActual();
   const saved = JSON.parse(localStorage.getItem("pedidos")) || {};
   Object.values(saved).forEach(pedido => reconstruirPedido(pedido));
