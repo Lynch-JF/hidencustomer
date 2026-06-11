@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <style>
     :root {
       --rep-bg: #F2F4F8;
@@ -16,6 +17,8 @@
       --rep-accent: #F2845C;
       --rep-accent-2: #4FA3D1;
       --rep-accent-green: #27AE60;
+      --rep-accent-max: #E84393;
+      --rep-accent-team: #8B5CF6;
       --rep-text: #1F2937;
       --rep-text-light: #8A94A6;
       --rep-border: #E6EAF0;
@@ -30,7 +33,6 @@
       color: var(--rep-text);
     }
 
-    /* ---- Encabezado con título + controles ---- */
     .rep-header {
       display: flex;
       align-items: center;
@@ -52,7 +54,6 @@
       flex-wrap: wrap;
     }
 
-    /* ---- Auto-refresh badge ---- */
     #refresh-badge {
       display: flex;
       align-items: center;
@@ -77,7 +78,6 @@
       50% { opacity: 0.3; }
     }
 
-    /* ---- Botón Exportar ---- */
     #btn-exportar {
       display: flex;
       align-items: center;
@@ -94,7 +94,6 @@
     }
     #btn-exportar:hover { background: var(--rep-primary-light); transform: translateY(-1px); }
 
-    /* ---- Filtros ---- */
     .rep-filtros-row {
       display: flex;
       flex-wrap: wrap;
@@ -126,7 +125,6 @@
       box-shadow: 0 4px 10px rgba(47,72,88,0.25);
     }
 
-    /* ---- Selector de auxiliar ---- */
     #sel-auxiliar {
       border: 1px solid var(--rep-border);
       background: var(--rep-card);
@@ -141,7 +139,6 @@
     }
     #sel-auxiliar:focus { border-color: var(--rep-primary-light); }
 
-    /* ---- KPIs ---- */
     .rep-kpis {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -156,7 +153,6 @@
       box-shadow: 0 2px 10px rgba(31,41,55,0.05);
       border: 1px solid var(--rep-border);
       transition: transform 0.15s ease, box-shadow 0.15s ease;
-      position: relative;
     }
     .rep-kpi:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(31,41,55,0.08); }
     .rep-kpi .valor { font-size: 1.9rem; font-weight: 800; line-height: 1.1; }
@@ -165,7 +161,6 @@
     .rep-kpi.kpi-naranja .valor { color: var(--rep-accent); }
     .rep-kpi.kpi-verde .valor   { color: var(--rep-accent-green); }
 
-    /* ---- Tendencia KPI ---- */
     .kpi-tendencia {
       display: inline-flex;
       align-items: center;
@@ -180,7 +175,6 @@
     .kpi-tendencia.baja  { background: #FEE2E2; color: #991B1B; }
     .kpi-tendencia.igual { background: #F3F4F6; color: #6B7280; }
 
-    /* ---- Cards ---- */
     .rep-card {
       background: var(--rep-card);
       border-radius: var(--rep-radius);
@@ -192,7 +186,6 @@
     .rep-card h3 { margin: 0 0 14px; font-size: 1.1rem; color: var(--rep-primary); font-weight: 700; }
     .rep-grafica-wrapper { position: relative; height: 360px; }
 
-    /* ---- Gráfica de tiempo ---- */
     .graficas-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -201,7 +194,34 @@
     }
     @media (max-width: 860px) { .graficas-grid { grid-template-columns: 1fr; } }
 
-    /* ---- Tabla ---- */
+    /* Chip de filtro activo en la gráfica de tiempo */
+    .grafica-filtro-activo {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--rep-accent);
+      background: #FFF4F0;
+      border: 1px solid #FECDB5;
+      border-radius: 999px;
+      padding: 4px 12px;
+      width: fit-content;
+    }
+    .grafica-filtro-activo.visible { display: flex; }
+    .grafica-filtro-activo button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: var(--rep-accent);
+      padding: 0;
+      line-height: 1;
+      font-weight: 900;
+    }
+    .grafica-filtro-activo button:hover { color: #c0603a; }
+
     .rep-tabla-wrapper { overflow-x: auto; }
     table.rep-tabla { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 700px; }
     table.rep-tabla thead th {
@@ -218,7 +238,25 @@
       border-top: 2px solid var(--rep-primary); border-bottom: none; background: var(--rep-bg);
     }
 
-    /* ---- Ranking ---- */
+    /* Fila de equipo */
+    table.rep-tabla tbody tr.fila-equipo td { background: #F5F3FF; }
+    table.rep-tabla tbody tr.fila-equipo:hover td { background: #EDE9FE; }
+
+    .badge-equipo {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #EDE9FE;
+      color: #6D28D9;
+      border: 1px solid #C4B5FD;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
     .rank-medal { font-size: 1.1rem; margin-right: 4px; }
     .progress-bar-wrap {
       display: flex; align-items: center; gap: 8px; justify-content: flex-end;
@@ -228,19 +266,58 @@
       background: linear-gradient(90deg, var(--rep-accent), var(--rep-accent-2));
       min-width: 4px; transition: width 0.4s ease;
     }
+    .progress-bar.equipo-bar {
+      background: linear-gradient(90deg, #8B5CF6, #C4B5FD);
+    }
+
+    .tiempo-max-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #FDF2F8;
+      color: #BE185D;
+      border: 1px solid #F9A8D4;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+    .tiempo-cell-max { color: #BE185D; font-weight: 800; }
 
     .rep-cargando, .rep-vacio { text-align: center; color: var(--rep-text-light); padding: 30px 0; }
     .monto-cell { color: var(--rep-accent-green); font-weight: 700; }
 
-    /* ---- Banner de diagnóstico ---- */
-    #diag-banner {
-      display: none; background: #fff3cd; border: 1px solid #ffc107;
-      border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
-      font-size: 0.78rem; color: #856404; word-break: break-all; line-height: 1.6;
+    /* Leyenda de la tabla */
+    .rep-leyenda {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
     }
-    #diag-banner strong { display: block; margin-bottom: 4px; font-size: 0.82rem; }
+    .leyenda-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--rep-text-light);
+      font-weight: 600;
+    }
+    .leyenda-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .leyenda-dot.individual { background: var(--rep-accent); }
+    .leyenda-dot.equipo     { background: var(--rep-accent-team); }
 
-    /* ---- Responsive ---- */
+    /* Hint clickeable debajo de la gráfica izquierda */
+    .grafica-hint {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--rep-text-light);
+      margin-top: 8px;
+      font-style: italic;
+    }
+
     @media (max-width: 1000px) { .rep-kpis { grid-template-columns: repeat(3,1fr); } }
     @media (max-width: 700px) {
       .rep-kpis { grid-template-columns: repeat(2,1fr); gap: 10px; }
@@ -266,7 +343,6 @@
 
   <div class="dashboard-reportes">
 
-    <!-- Encabezado con título + badge + exportar -->
     <div class="rep-header">
       <h2>📊 Reporte de Pedidos por Auxiliar</h2>
       <div class="rep-header-controls">
@@ -278,7 +354,6 @@
       </div>
     </div>
 
-    <!-- Filtros de fecha + selector de auxiliar -->
     <div class="rep-filtros-row">
       <div class="rep-filtros" id="rep-filtros">
         <button data-rango="hoy" class="activo">Hoy</button>
@@ -290,10 +365,23 @@
       </div>
       <select id="sel-auxiliar">
         <option value="">Todos los auxiliares</option>
+        <option value="Omar Marmolejos Fajardo">Omar Marmolejos Fajardo</option>
+        <option value="Jairo Fernandez Salcedo">Jairo Fernandez Salcedo</option>
+        <option value="Ismael Augusto Veras Lasuse">Ismael Augusto Veras Lasuse</option>
+        <option value="Fernando Antonio Burgos Cabrera">Fernando Antonio Burgos Cabrera</option>
+        <option value="Juan De Jesús Peña Pérez">Juan De Jesús Peña Pérez</option>
+        <option value="Luis David Nuñez Santos">Luis David Nuñez Santos</option>
+        <option value="Yustin Alexander Mendez">Yustin Alexander Mendez</option>
+        <option value="Luis Eduardo Reyes">Luis Eduardo Reyes</option>
+        <option value="Omelbe Gomez Valdez">Omelbe Gomez Valdez</option>
+        <option value="Bryhan Santo Cordero">Bryhan Santo Cordero</option>
+        <option value="Enrique Nuñez Brito">Enrique Nuñez Brito</option>
+        <option value="Cirilo Reynoso Acevedo">Cirilo Reynoso Acevedo</option>
+        <option value="Yan Carlos Cruz Paulino">Yan Carlos Cruz Paulino</option>
+        <option value="Wilkin Ortega Diaz">Wilkin Ortega Diaz</option>
       </select>
     </div>
 
-    <!-- KPIs con tendencia -->
     <div class="rep-kpis">
       <div class="rep-kpi kpi-azul">
         <div class="valor" id="kpi-pedidos">0</div>
@@ -301,8 +389,8 @@
         <div id="tend-pedidos"></div>
       </div>
       <div class="rep-kpi kpi-azul">
-        <div class="valor" id="kpi-tiempo">0</div>
-        <div class="etiqueta">Tiempo prom. por Artículo</div>
+        <div class="valor" id="kpi-tiempo">0:00</div>
+        <div class="etiqueta">Tiempo prom. por Artículo (mm:ss)</div>
         <div id="tend-tiempo"></div>
       </div>
       <div class="rep-kpi kpi-naranja">
@@ -322,26 +410,39 @@
       </div>
     </div>
 
-    <!-- Gráficas lado a lado -->
     <div class="graficas-grid">
       <div class="rep-card">
         <h3>Pedidos y Referencias por Auxiliar</h3>
         <div class="rep-grafica-wrapper">
           <canvas id="grafica-auxiliares"></canvas>
         </div>
+        <p class="grafica-hint">💡 Haz clic en una barra para filtrar la gráfica de tiempo</p>
       </div>
       <div class="rep-card">
-        <h3>⏱ Tiempo prom. por Artículo (seg)</h3>
+        <h3>⏱ Tiempo prom. por Artículo (mm:ss)</h3>
+        <!-- Chip que muestra quién está filtrado -->
+        <div class="grafica-filtro-activo" id="chip-filtro-tiempo">
+          <span id="chip-filtro-nombre"></span>
+          <button onclick="limpiarFiltroGrafica()" title="Quitar filtro">✕</button>
+        </div>
         <div class="rep-grafica-wrapper">
           <canvas id="grafica-tiempo"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- Tabla con ranking -->
     <div class="rep-card">
       <h3>Detalle por Auxiliar</h3>
-      <div id="diag-banner"></div>
+      <div class="rep-leyenda">
+        <div class="leyenda-item">
+          <div class="leyenda-dot individual"></div>
+          <span>Individual</span>
+        </div>
+        <div class="leyenda-item">
+          <div class="leyenda-dot equipo"></div>
+          <span>Equipo (pedido compartido — referencias contadas 1 sola vez)</span>
+        </div>
+      </div>
       <div class="rep-tabla-wrapper">
         <table class="rep-tabla">
           <thead>
@@ -351,7 +452,7 @@
               <th>#Pedidos</th>
               <th>#Referencias</th>
               <th>Total de Bultos</th>
-              <th>Tiempo por Artículo</th>
+              <th>Tiempo por Artículo (mm:ss)</th>
               <th>Monto Total</th>
             </tr>
           </thead>
@@ -365,10 +466,30 @@
   </div>
 
   <script>
-    // =============================================================
-    // CONFIGURACIÓN
-    // =============================================================
+    Chart.register(ChartDataLabels);
+
     const API_SHEET = "https://api.sheetbest.com/sheets/cce35084-ee62-4934-b2ed-eb5fcd2d414b";
+
+    // ─── Lista canónica de auxiliares individuales (idéntica al select del index) ──
+    const AUXILIARES_INDIVIDUALES = [
+      "Omar Marmolejos Fajardo",
+      "Jairo Fernandez Salcedo",
+      "Ismael Augusto Veras Lasuse",
+      "Fernando Antonio Burgos Cabrera",
+      "Juan De Jesús Peña Pérez",
+      "Luis David Nuñez Santos",
+      "Yustin Alexander Mendez",
+      "Luis Eduardo Reyes",
+      "Omelbe Gomez Valdez",
+      "Bryhan Santo Cordero",
+      "Enrique Nuñez Brito",
+      "Cirilo Reynoso Acevedo",
+      "Yan Carlos Cruz Paulino",
+      "Wilkin Ortega Diaz",
+    ];
+
+    // Máx referencias razonables por pedido (para sanitizar datos corruptos)
+    const MAX_REFS_POR_PEDIDO = 500;
 
     const CAMPOS = {
       sacador:     ["Sacador", "Sacador "],
@@ -379,35 +500,43 @@
       monto:       ["MontoFinal", "MontoFinal "]
     };
 
-    const UMBRAL_REF_POR_PEDIDO = 500;
-    const REFRESH_INTERVAL_MS   = 5 * 60 * 1000; // 5 min
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
-    let graficaAuxiliares  = null;
-    let graficaTiempo      = null;
-    let rangoActual        = "hoy";
-    let filtroAuxiliar     = "";
-    let todosLosDatos      = [];      // cache de la última carga completa
-    let kpisAnteriores     = null;    // para tendencias
-    let timerInterval      = null;
-    let timerSegundos      = REFRESH_INTERVAL_MS / 1000;
+    let graficaAuxiliares = null;
+    let graficaTiempo     = null;
+    let rangoActual       = "hoy";
+    let filtroAuxiliar    = "";
+    let todosLosDatos     = [];
+    let timerInterval     = null;
+    let timerSegundos     = REFRESH_INTERVAL_MS / 1000;
+    let filasActuales     = [];
+    let totalesActuales   = {};
 
-    // =============================================================
-    // UTILIDADES
-    // =============================================================
+    // Estado del filtro de gráfica de tiempo (click en barra naranja)
+    let filtroGraficaTiempo = null; // null = sin filtro, string = nombre del auxiliar
+
+    // ─── Detectar si un sacador es un equipo ──────────────────────────────────
+    // Es equipo si contiene "/" (ej: "Jairo/Luis Alberto", "Yan / Luis David")
+    function esEquipo(sacador) {
+      return /\//.test(String(sacador || "").trim());
+    }
+
+    // ─── Utilidades numéricas ─────────────────────────────────────────────────
+
+    function minAMmss(minutos) {
+      if (!minutos || isNaN(minutos)) return "0:00";
+      const totalSeg = Math.round(minutos * 60);
+      const mm = Math.floor(totalSeg / 60);
+      const ss = String(totalSeg % 60).padStart(2, "0");
+      return `${mm}:${ss}`;
+    }
+
     function obtenerCampo(obj, posibles) {
       for (const key of posibles) {
         const val = obj[key];
         if (val !== undefined && val !== null && String(val).trim() !== "") return val;
       }
       return "";
-    }
-
-    function obtenerCampoInfo(obj, posibles) {
-      for (const key of posibles) {
-        const val = obj[key];
-        if (val !== undefined && val !== null && String(val).trim() !== "") return { key, val };
-      }
-      return { key: "❌ NO ENCONTRADO", val: "" };
     }
 
     function parsearNumero(raw) {
@@ -430,9 +559,12 @@
       return isNaN(v) ? 0 : v;
     }
 
-    // =============================================================
-    // FECHAS
-    // =============================================================
+    // Referencias con sanitización: si supera el máximo razonable → 0 (dato corrupto)
+    function obtenerReferencias(obj) {
+      const v = obtenerNumero(obj, CAMPOS.referencias);
+      return v > MAX_REFS_POR_PEDIDO ? 0 : v;
+    }
+
     function esMismaFecha(f1, f2) {
       return f1.getFullYear() === f2.getFullYear() && f1.getMonth() === f2.getMonth() && f1.getDate() === f2.getDate();
     }
@@ -466,7 +598,6 @@
       }
     }
 
-    // Devuelve el rango "anterior" equivalente para comparar tendencias
     function rangoAnterior(rango) {
       switch (rango) {
         case "hoy":       return "ayer";
@@ -479,7 +610,6 @@
     }
 
     function pasaFiltroFechaExt(fecha, rango, ahora) {
-      // Extiende pasaFiltroFecha con rangos adicionales para tendencias
       if (rango === "antesDeAyer") {
         const antier = new Date(ahora); antier.setDate(ahora.getDate() - 2);
         return esMismaFecha(fecha, antier);
@@ -495,9 +625,6 @@
       return pasaFiltroFecha(fecha, rango, ahora);
     }
 
-    // =============================================================
-    // FORMATO
-    // =============================================================
     function formatNumero(n) {
       if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1) + "M";
       if (Math.abs(n) >= 10000)   return Math.round(n / 1000) + "K";
@@ -515,13 +642,15 @@
       return "$" + n.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // =============================================================
-    // TENDENCIAS
-    // =============================================================
     function calcularKPIs(pedidos) {
       let refs = 0, bultos = 0, monto = 0, sumaTiempos = 0, cantTiempos = 0;
+      const codigosVistos = new Set();
       pedidos.forEach(p => {
-        refs   += obtenerNumero(p, CAMPOS.referencias);
+        const codigoP = String(p["Codigo P"] || p["CodigoP"] || "").trim();
+        if (!codigosVistos.has(codigoP) || !codigoP) {
+          refs += obtenerReferencias(p);
+          codigosVistos.add(codigoP);
+        }
         bultos += obtenerNumero(p, CAMPOS.bultos);
         monto  += obtenerMonto(p,  CAMPOS.monto);
         const t = obtenerNumero(p, CAMPOS.tiempo);
@@ -550,40 +679,6 @@
       }
     }
 
-    // =============================================================
-    // DIAGNÓSTICO AUTOMÁTICO
-    // =============================================================
-    function mostrarDiagnostico(primerRegistro, totalRefs, totalPedidos) {
-      if (!primerRegistro || totalPedidos === 0) return;
-      const promedio = totalRefs / totalPedidos;
-      if (promedio <= UMBRAL_REF_POR_PEDIDO) return;
-
-      const numericas = Object.entries(primerRegistro)
-        .filter(([, v]) => { const n = parsearNumero(String(v).replace(/\$/g, "").replace(/,/g, "")); return !isNaN(n); })
-        .map(([k, v]) => `<b>${k}</b>: ${v}`)
-        .join(" &nbsp;|&nbsp; ");
-
-      const campoUsado = obtenerCampoInfo(primerRegistro, CAMPOS.referencias);
-      const banner = document.getElementById("diag-banner");
-      banner.style.display = "block";
-      banner.innerHTML = `
-        <strong>⚠️ Las referencias parecen incorrectas (${Math.round(promedio).toLocaleString()} por pedido en promedio).
-        Campo que se está usando: <u>${campoUsado.key}</u> = ${campoUsado.val}</strong>
-        Columnas numéricas disponibles en la hoja:<br>${numericas}<br><br>
-        👉 <b>Dile a Fran qué columna tiene el número correcto de referencias</b>
-        y se agrega ese nombre exactamente a <code>CAMPOS.referencias</code>.
-      `;
-    }
-
-    function ocultarDiagnostico() {
-      const banner = document.getElementById("diag-banner");
-      banner.style.display = "none";
-      banner.innerHTML = "";
-    }
-
-    // =============================================================
-    // TIMER DE REFRESH
-    // =============================================================
     function iniciarTimer() {
       if (timerInterval) clearInterval(timerInterval);
       timerSegundos = REFRESH_INTERVAL_MS / 1000;
@@ -592,68 +687,37 @@
         const min = String(Math.floor(timerSegundos / 60)).padStart(1, "0");
         const seg = String(timerSegundos % 60).padStart(2, "0");
         document.getElementById("refresh-texto").textContent = `Actualiza en ${min}:${seg}`;
-        if (timerSegundos <= 0) {
-          cargarReporte(rangoActual);
-        }
+        if (timerSegundos <= 0) cargarReporte(rangoActual);
       }, 1000);
     }
 
-    // =============================================================
-    // SELECTOR DE AUXILIAR
-    // =============================================================
-    function actualizarSelectorAuxiliares(data) {
-      const sel = document.getElementById("sel-auxiliar");
-      const valorActual = sel.value;
-      const nombres = [...new Set(
-        data.map(p => String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim()).filter(Boolean)
-      )].sort();
-
-      sel.innerHTML = `<option value="">Todos los auxiliares</option>` +
-        nombres.map(n => `<option value="${n}" ${n === valorActual ? "selected" : ""}>${n}</option>`).join("");
-      filtroAuxiliar = sel.value;
-    }
-
-    // =============================================================
-    // EXPORTAR CSV
-    // =============================================================
     function exportarCSV(filas, totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto) {
       const BOM = "\uFEFF";
-      const cabecera = ["Auxiliar", "#Pedidos", "#Referencias", "Total de Bultos", "Tiempo por Artículo", "Monto Total"].join(";");
+      const cabecera = ["Auxiliar","Tipo","#Pedidos","#Referencias","Total de Bultos","Tiempo por Artículo (mm:ss)","Tiempo (min decimal)","Monto Total"].join(";");
       const filasTxt = filas.map(f =>
-        [f.nombre, f.pedidos, f.referencias, f.bultos, f.tiempoProm.toFixed(2), f.monto.toFixed(2)].join(";")
+        [f.nombre, f.equipo ? "Equipo" : "Individual", f.pedidos, f.referencias, f.bultos, minAMmss(f.tiempoProm), f.tiempoProm.toFixed(2), f.monto.toFixed(2)].join(";")
       );
-      filasTxt.push(["Total", totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral.toFixed(2), totalMonto.toFixed(2)].join(";"));
-
+      filasTxt.push(["Total","",totalPedidos,totalReferencias,totalBultos,minAMmss(tiempoPromGeneral),tiempoPromGeneral.toFixed(2),totalMonto.toFixed(2)].join(";"));
       const csv = BOM + cabecera + "\n" + filasTxt.join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
-      const fecha = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = `reporte_pedidos_${rangoActual}_${fecha}.csv`;
+      a.download = `reporte_pedidos_${rangoActual}_${new Date().toISOString().slice(0,10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     }
 
-    // Guardamos filas actuales para el botón de exportar
-    let filasActuales = [];
-    let totalesActuales = {};
-
-    // =============================================================
-    // CARGA
-    // =============================================================
     function cargarReporte(rango) {
       rangoActual = rango;
       document.getElementById("rep-tabla-body").innerHTML =
         `<tr><td colspan="7" class="rep-cargando">Cargando datos...</td></tr>`;
-      ocultarDiagnostico();
       iniciarTimer();
 
       fetch(API_SHEET)
         .then(res => res.json())
         .then(data => {
           todosLosDatos = data;
-          actualizarSelectorAuxiliares(data);
           aplicarFiltrosYRenderizar(data, rango);
         })
         .catch(err => {
@@ -671,14 +735,15 @@
         const fecha    = new Date(fechaStr);
         if (isNaN(fecha.getTime())) return false;
         if (!pasaFiltroFecha(fecha, rango, ahora)) return false;
+
+        // Filtro de auxiliar desde el selector: incluye al auxiliar dentro de equipos también
         if (filtroAuxiliar) {
-          const sac = String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim();
-          if (sac !== filtroAuxiliar) return false;
+          const sac = String(obtenerCampo(p, CAMPOS.sacador) || "").trim();
+          if (!sac.includes(filtroAuxiliar) && sac !== filtroAuxiliar) return false;
         }
         return true;
       });
 
-      // Calcular KPIs del periodo anterior para tendencias
       const rAnterior = rangoAnterior(rango);
       let kpisAnt = null;
       if (rAnterior) {
@@ -691,43 +756,64 @@
         kpisAnt = calcularKPIs(pedidosAnt);
       }
 
-      procesarYRenderizar(pedidosFiltrados, data[0] || null, kpisAnt);
+      procesarYRenderizar(pedidosFiltrados, kpisAnt);
     }
 
-    // =============================================================
-    // PROCESAMIENTO
-    // =============================================================
-    function procesarYRenderizar(pedidos, primerRegistroRaw, kpisAnt) {
+    function procesarYRenderizar(pedidos, kpisAnt) {
       const auxiliares = {};
-      let totalReferencias = 0, totalBultos = 0, totalMonto = 0;
-      let sumaTiempos = 0, cantidadTiempos = 0;
+      let totalMonto = 0;
+      let sumaTiemposTotal = 0, cantidadTiemposTotal = 0;
 
+      const referenciasPorCodigo = {};
       pedidos.forEach(p => {
-        const sacador     = String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim();
-        const referencias = obtenerNumero(p, CAMPOS.referencias);
-        const bultos      = obtenerNumero(p, CAMPOS.bultos);
-        const tiempo      = obtenerNumero(p, CAMPOS.tiempo);
-        const monto       = obtenerMonto(p,  CAMPOS.monto);
-
-        if (!auxiliares[sacador]) {
-          auxiliares[sacador] = { pedidos: 0, referencias: 0, bultos: 0, monto: 0, sumaTiempos: 0, cantidadTiempos: 0 };
-        }
-
-        auxiliares[sacador].pedidos     += 1;
-        auxiliares[sacador].referencias += referencias;
-        auxiliares[sacador].bultos      += bultos;
-        auxiliares[sacador].monto       += monto;
-        totalReferencias += referencias;
-        totalBultos      += bultos;
-        totalMonto       += monto;
-
-        if (tiempo > 0) {
-          auxiliares[sacador].sumaTiempos     += tiempo;
-          auxiliares[sacador].cantidadTiempos += 1;
-          sumaTiempos     += tiempo;
-          cantidadTiempos += 1;
+        const codigo = String(p["Codigo P"] || p["CodigoP"] || "").trim();
+        if (codigo && !(codigo in referenciasPorCodigo)) {
+          referenciasPorCodigo[codigo] = obtenerReferencias(p);
         }
       });
+
+      const codigosContadosEnAuxiliar = {};
+
+      pedidos.forEach(p => {
+        const sacadorRaw = String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim();
+        const bultos     = obtenerNumero(p, CAMPOS.bultos);
+        const tiempo     = obtenerNumero(p, CAMPOS.tiempo);
+        const monto      = obtenerMonto(p,  CAMPOS.monto);
+        const codigo     = String(p["Codigo P"] || p["CodigoP"] || "").trim();
+        const esTeam     = esEquipo(sacadorRaw);
+
+        if (!auxiliares[sacadorRaw]) {
+          auxiliares[sacadorRaw] = {
+            pedidos: 0, referencias: 0, bultos: 0, monto: 0,
+            sumaTiempos: 0, cantidadTiempos: 0,
+            equipo: esTeam
+          };
+          codigosContadosEnAuxiliar[sacadorRaw] = new Set();
+        }
+
+        auxiliares[sacadorRaw].pedidos += 1;
+        auxiliares[sacadorRaw].bultos  += bultos;
+        auxiliares[sacadorRaw].monto   += monto;
+        totalMonto += monto;
+
+        if (codigo && !codigosContadosEnAuxiliar[sacadorRaw].has(codigo)) {
+          auxiliares[sacadorRaw].referencias += referenciasPorCodigo[codigo] || 0;
+          codigosContadosEnAuxiliar[sacadorRaw].add(codigo);
+        } else if (!codigo) {
+          auxiliares[sacadorRaw].referencias += obtenerReferencias(p);
+        }
+
+        if (tiempo > 0) {
+          auxiliares[sacadorRaw].sumaTiempos     += tiempo;
+          auxiliares[sacadorRaw].cantidadTiempos += 1;
+          sumaTiemposTotal     += tiempo;
+          cantidadTiemposTotal += 1;
+        }
+      });
+
+      const totalReferencias = Object.values(referenciasPorCodigo).reduce((a, b) => a + b, 0);
+      const totalBultos = Object.values(auxiliares).reduce((a, b) => a + b.bultos, 0);
+      const tiempoPromGeneral = cantidadTiemposTotal > 0 ? sumaTiemposTotal / cantidadTiemposTotal : 0;
 
       const filas = Object.entries(auxiliares).map(([nombre, d]) => ({
         nombre,
@@ -735,38 +821,41 @@
         referencias: d.referencias,
         bultos:      d.bultos,
         monto:       d.monto,
-        tiempoProm:  d.cantidadTiempos > 0 ? d.sumaTiempos / d.cantidadTiempos : 0
+        tiempoProm:  d.cantidadTiempos > 0 ? d.sumaTiempos / d.cantidadTiempos : 0,
+        equipo:      d.equipo
       }));
       filas.sort((a, b) => b.pedidos - a.pedidos);
 
-      const tiempoPromGeneral = cantidadTiempos > 0 ? sumaTiempos / cantidadTiempos : 0;
-
-      filasActuales  = filas;
+      filasActuales   = filas;
       totalesActuales = { totalPedidos: pedidos.length, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto };
 
-      mostrarDiagnostico(primerRegistroRaw, totalReferencias, pedidos.length);
       renderizarKPIs(pedidos.length, tiempoPromGeneral, totalReferencias, totalBultos, totalMonto, kpisAnt);
       renderizarTabla(filas, pedidos.length, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto);
       renderizarGraficaAuxiliares(filas);
-      renderizarGraficaTiempo(filas);
+
+      // Al re-renderizar datos, si hay filtro de gráfica activo, verificar que todavía existe
+      if (filtroGraficaTiempo) {
+        const existeFila = filas.find(f => f.nombre === filtroGraficaTiempo);
+        if (!existeFila) limpiarFiltroGrafica();
+        else             renderizarGraficaTiempo(filas, filtroGraficaTiempo);
+      } else {
+        renderizarGraficaTiempo(filas, null);
+      }
     }
 
-    // =============================================================
-    // RENDERIZADO
-    // =============================================================
     function renderizarKPIs(totalPedidos, tiempoProm, totalReferencias, totalBultos, totalMonto, kpisAnt) {
       document.getElementById("kpi-pedidos").textContent     = formatNumero(totalPedidos);
-      document.getElementById("kpi-tiempo").textContent      = tiempoProm.toFixed(2);
+      document.getElementById("kpi-tiempo").textContent      = minAMmss(tiempoProm);
       document.getElementById("kpi-referencias").textContent = formatNumero(totalReferencias);
       document.getElementById("kpi-bultos").textContent      = formatNumero(totalBultos);
       document.getElementById("kpi-monto").textContent       = formatMonto(totalMonto);
 
       if (kpisAnt) {
-        renderTendencia("tend-pedidos",    totalPedidos,    kpisAnt.pedidos);
-        renderTendencia("tend-tiempo",     tiempoProm,      kpisAnt.tiempo);
-        renderTendencia("tend-referencias",totalReferencias,kpisAnt.referencias);
-        renderTendencia("tend-bultos",     totalBultos,     kpisAnt.bultos);
-        renderTendencia("tend-monto",      totalMonto,      kpisAnt.monto);
+        renderTendencia("tend-pedidos",     totalPedidos,     kpisAnt.pedidos);
+        renderTendencia("tend-tiempo",      tiempoProm,       kpisAnt.tiempo);
+        renderTendencia("tend-referencias", totalReferencias, kpisAnt.referencias);
+        renderTendencia("tend-bultos",      totalBultos,      kpisAnt.bultos);
+        renderTendencia("tend-monto",       totalMonto,       kpisAnt.monto);
       } else {
         ["tend-pedidos","tend-tiempo","tend-referencias","tend-bultos","tend-monto"]
           .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
@@ -785,22 +874,45 @@
         return;
       }
 
-      const maxPedidos = filas[0].pedidos || 1;
+      const maxPedidos = Math.max(...filas.map(f => f.pedidos)) || 1;
+      const maxTiempo  = Math.max(...filas.map(f => f.tiempoProm));
 
-      tbody.innerHTML = filas.map((f, i) => {
-        const medalla = i < 3 ? `<span class="rank-medal">${MEDALLAS[i]}</span>` : `<span style="color:var(--rep-text-light);font-size:0.8rem">${i+1}</span>`;
-        const barraW  = Math.round((f.pedidos / maxPedidos) * 80);
-        const barra   = `<div class="progress-bar-wrap">
+      let rankInd = 0;
+      tbody.innerHTML = filas.map((f) => {
+        const esTeam = f.equipo;
+        let medalla;
+        if (esTeam) {
+          medalla = `<span style="color:var(--rep-accent-team);font-size:0.85rem">👥</span>`;
+        } else {
+          rankInd++;
+          medalla = rankInd <= 3
+            ? `<span class="rank-medal">${MEDALLAS[rankInd - 1]}</span>`
+            : `<span style="color:var(--rep-text-light);font-size:0.8rem">${rankInd}</span>`;
+        }
+
+        const barraW = Math.round((f.pedidos / maxPedidos) * 80);
+        const barra  = `<div class="progress-bar-wrap">
           <span>${f.pedidos.toLocaleString("es-DO")}</span>
-          <div class="progress-bar" style="width:${barraW}px"></div>
+          <div class="progress-bar${esTeam ? " equipo-bar" : ""}" style="width:${barraW}px"></div>
         </div>`;
-        return `<tr>
+
+        const esMax     = maxTiempo > 0 && f.tiempoProm === maxTiempo;
+        const tiempoStr = minAMmss(f.tiempoProm);
+        const tiempoHtml = esMax
+          ? `<span class="tiempo-cell-max">${tiempoStr}</span><span class="tiempo-max-badge">⬆ Mayor</span>`
+          : `<span>${tiempoStr}</span>`;
+
+        const nombreHtml = esTeam
+          ? `${f.nombre}<span class="badge-equipo">👥 Equipo</span>`
+          : f.nombre;
+
+        return `<tr class="${esTeam ? "fila-equipo" : ""}">
           <td style="text-align:center">${medalla}</td>
-          <td>${f.nombre}</td>
+          <td>${nombreHtml}</td>
           <td>${barra}</td>
           <td>${f.referencias.toLocaleString("es-DO")}</td>
           <td>${f.bultos.toLocaleString("es-DO")}</td>
-          <td>${f.tiempoProm.toFixed(2)}</td>
+          <td style="text-align:right">${tiempoHtml}</td>
           <td class="monto-cell">${formatMontoCompleto(f.monto)}</td>
         </tr>`;
       }).join("");
@@ -811,22 +923,52 @@
         <td>${totalPedidos.toLocaleString("es-DO")}</td>
         <td>${totalReferencias.toLocaleString("es-DO")}</td>
         <td>${totalBultos.toLocaleString("es-DO")}</td>
-        <td>${tiempoPromGeneral.toFixed(2)}</td>
+        <td>${minAMmss(tiempoPromGeneral)}</td>
         <td class="monto-cell">${formatMontoCompleto(totalMonto)}</td>
       </tr>`;
     }
 
+    // ─── Gráfica de barras + línea (izquierda) ───────────────────────────────
+    // Al hacer click en una barra naranja (individual) filtra la gráfica de tiempo
     function renderizarGraficaAuxiliares(filas) {
       const ctx = document.getElementById("grafica-auxiliares").getContext("2d");
+
       const labels           = filas.map(f => f.nombre);
       const datosPedidos     = filas.map(f => f.pedidos);
       const datosReferencias = filas.map(f => f.referencias);
+      const coloresPedidos   = filas.map(f =>
+        f.equipo ? "rgba(139,92,246,0.75)" : "rgba(242,132,92,0.75)"
+      );
+      const bordesPedidos = filas.map(f =>
+        f.equipo ? "rgba(139,92,246,1)" : "rgba(242,132,92,1)"
+      );
 
       const dataConfig = {
         labels,
         datasets: [
-          { type: "bar",  label: "# Pedidos",    data: datosPedidos,     backgroundColor: "rgba(242,132,92,0.75)", borderColor: "rgba(242,132,92,1)", borderWidth: 1, yAxisID: "y" },
-          { type: "line", label: "# Referencias", data: datosReferencias, borderColor: "rgba(47,72,88,1)", backgroundColor: "rgba(47,72,88,0.15)", borderWidth: 2, tension: 0.35, fill: true, pointRadius: 2, yAxisID: "y1" }
+          {
+            type: "bar",
+            label: "# Pedidos",
+            data: datosPedidos,
+            backgroundColor: coloresPedidos,
+            borderColor: bordesPedidos,
+            borderWidth: 1,
+            yAxisID: "y",
+            datalabels: { display: false }
+          },
+          {
+            type: "line",
+            label: "# Referencias",
+            data: datosReferencias,
+            borderColor: "rgba(47,72,88,1)",
+            backgroundColor: "rgba(47,72,88,0.15)",
+            borderWidth: 2,
+            tension: 0.35,
+            fill: true,
+            pointRadius: 2,
+            yAxisID: "y1",
+            datalabels: { display: false }
+          }
         ]
       };
 
@@ -841,36 +983,136 @@
         options: {
           responsive: true, maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
-          plugins: { legend: { position: "top" }, tooltip: { enabled: true } },
+          plugins: {
+            legend: {
+              position: "top",
+              labels: {
+                generateLabels: (chart) => {
+                  const items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                  // Agregar ítem de leyenda manual para "Equipo"
+                  items.splice(1, 0, {
+                    text: "# Pedidos (Equipo)",
+                    fillStyle: "rgba(139,92,246,0.75)",
+                    strokeStyle: "rgba(139,92,246,1)",
+                    lineWidth: 1,
+                    hidden: false,
+                    index: -1
+                  });
+                  return items;
+                }
+              }
+            },
+            tooltip: { enabled: true },
+            datalabels: { display: false }
+          },
           scales: {
             x:  { ticks: { autoSkip: false, maxRotation: 75, minRotation: 45, font: { size: 10 } } },
             y:  { type: "linear", position: "left",  beginAtZero: true, title: { display: true, text: "# Pedidos" } },
             y1: { type: "linear", position: "right", beginAtZero: true, title: { display: true, text: "# Referencias" }, grid: { drawOnChartArea: false } }
+          },
+          onClick: (event, elements) => {
+            if (!elements || elements.length === 0) return;
+            // Solo reaccionar a clicks en el dataset de barras (índice 0)
+            const el = elements.find(e => e.datasetIndex === 0);
+            if (!el) return;
+            const fila = filasActuales[el.index];
+            if (!fila) return;
+            // Solo individuales son filtrables (los equipos no aplican)
+            if (fila.equipo) return;
+            // Toggle: si ya está filtrado por este, quitar; si no, aplicar
+            if (filtroGraficaTiempo === fila.nombre) {
+              limpiarFiltroGrafica();
+            } else {
+              filtroGraficaTiempo = fila.nombre;
+              actualizarChipFiltro(fila.nombre);
+              renderizarGraficaTiempo(filasActuales, fila.nombre);
+            }
+          },
+          // Cambiar cursor al pasar sobre barras individuales
+          onHover: (event, elements) => {
+            const canvas = event.native?.target;
+            if (!canvas) return;
+            const el = elements.find(e => e.datasetIndex === 0);
+            if (el) {
+              const fila = filasActuales[el.index];
+              canvas.style.cursor = (fila && !fila.equipo) ? "pointer" : "default";
+            } else {
+              canvas.style.cursor = "default";
+            }
           }
         }
       });
     }
 
-    function renderizarGraficaTiempo(filas) {
+    // ─── Chip de filtro activo (gráfica de tiempo) ────────────────────────────
+    function actualizarChipFiltro(nombre) {
+      const chip = document.getElementById("chip-filtro-tiempo");
+      const span = document.getElementById("chip-filtro-nombre");
+      span.textContent = `Mostrando: ${nombre}`;
+      chip.classList.add("visible");
+    }
+
+    function limpiarFiltroGrafica() {
+      filtroGraficaTiempo = null;
+      const chip = document.getElementById("chip-filtro-tiempo");
+      chip.classList.remove("visible");
+      renderizarGraficaTiempo(filasActuales, null);
+    }
+
+    // ─── Gráfica de tiempo (derecha) — acepta filtro opcional ─────────────────
+    // Si `soloNombre` es un string, muestra exclusivamente ese auxiliar.
+    function renderizarGraficaTiempo(filas, soloNombre) {
       const ctx = document.getElementById("grafica-tiempo").getContext("2d");
-      const conTiempo = filas.filter(f => f.tiempoProm > 0);
-      const labels = conTiempo.map(f => f.nombre);
-      const datos  = conTiempo.map(f => parseFloat(f.tiempoProm.toFixed(2)));
+
+      // Aplicar filtro si hay uno activo
+      const filasFiltradas = soloNombre
+        ? filas.filter(f => f.nombre === soloNombre)
+        : filas;
+
+      const filasOrdenadas = [...filasFiltradas].sort((a, b) => b.tiempoProm - a.tiempoProm);
+      const maxTiempo      = filasOrdenadas.length > 0 ? filasOrdenadas[0].tiempoProm : 0;
+
+      const labels  = filasOrdenadas.map(f => f.nombre);
+      const datos   = filasOrdenadas.map(f => parseFloat(f.tiempoProm.toFixed(4)));
+
+      const colores = filasOrdenadas.map(f => {
+        if (maxTiempo > 0 && f.tiempoProm === maxTiempo) return "rgba(232,67,147,0.85)";
+        if (f.equipo) return "rgba(139,92,246,0.55)";
+        return "rgba(79,163,209,0.55)";
+      });
+      const bordes = filasOrdenadas.map(f => {
+        if (maxTiempo > 0 && f.tiempoProm === maxTiempo) return "rgba(232,67,147,1)";
+        if (f.equipo) return "rgba(139,92,246,1)";
+        return "rgba(79,163,209,1)";
+      });
 
       const dataConfig = {
         labels,
         datasets: [{
-          label: "Seg. por artículo",
+          label: "Tiempo por artículo",
           data: datos,
-          backgroundColor: conTiempo.map((_, i) => i === 0 ? "rgba(79,163,209,0.9)" : "rgba(79,163,209,0.5)"),
-          borderColor: "rgba(79,163,209,1)",
-          borderWidth: 1,
-          borderRadius: 6
+          backgroundColor: colores,
+          borderColor: bordes,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          datalabels: {
+            display: true,
+            anchor: "end",
+            align: "right",
+            formatter: (value) => value > 0 ? minAMmss(value) : "0:00",
+            color: (ctx) => {
+              const val = ctx.dataset.data[ctx.dataIndex];
+              return (maxTiempo > 0 && val === maxTiempo) ? "#BE185D" : "#4A6E8A";
+            },
+            font: { size: 11, weight: "700" },
+            padding: { left: 4 }
+          }
         }]
       };
 
       if (graficaTiempo) {
         graficaTiempo.data = dataConfig;
+        graficaTiempo.data.datasets[0].datalabels = dataConfig.datasets[0].datalabels;
         graficaTiempo.update();
         return;
       }
@@ -880,29 +1122,49 @@
         data: dataConfig,
         options: {
           indexAxis: "y",
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} seg` } } },
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { right: 70 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const minDecimal = ctx.parsed.x;
+                  return `  ${minAMmss(minDecimal)}  (${minDecimal.toFixed(2)} min)`;
+                }
+              }
+            },
+            datalabels: { display: true }
+          },
           scales: {
-            x: { beginAtZero: true, title: { display: true, text: "Segundos" } },
+            x: {
+              beginAtZero: true,
+              title: { display: true, text: "Minutos (decimales)" },
+              ticks: { callback: (value) => minAMmss(value) }
+            },
             y: { ticks: { font: { size: 11 } } }
           }
         }
       });
     }
 
-    // =============================================================
-    // INICIALIZACIÓN
-    // =============================================================
+    // ─── Event listeners ──────────────────────────────────────────────────────
+
     document.querySelectorAll("#rep-filtros button").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("#rep-filtros button").forEach(b => b.classList.remove("activo"));
         btn.classList.add("activo");
+        // Al cambiar el rango limpiamos el filtro de gráfica
+        limpiarFiltroGrafica();
         cargarReporte(btn.dataset.rango);
       });
     });
 
     document.getElementById("sel-auxiliar").addEventListener("change", function () {
       filtroAuxiliar = this.value;
+      // Al cambiar el filtro de auxiliar también limpiamos el filtro de gráfica
+      limpiarFiltroGrafica();
       if (todosLosDatos.length > 0) aplicarFiltrosYRenderizar(todosLosDatos, rangoActual);
     });
 
