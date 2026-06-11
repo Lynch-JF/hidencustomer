@@ -3,127 +3,916 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gráfica por Sacador</title>
-
+  <title>Reportes de Pedidos</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
-    body { font-family: Arial, sans-serif; }
-    .container-grafica {
-      max-width: 1000px;
-      margin: 40px auto;
-      padding: 20px;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      background: #fff;
+    :root {
+      --rep-bg: #F2F4F8;
+      --rep-card: #FFFFFF;
+      --rep-primary: #2F4858;
+      --rep-primary-light: #4A6E8A;
+      --rep-accent: #F2845C;
+      --rep-accent-2: #4FA3D1;
+      --rep-accent-green: #27AE60;
+      --rep-text: #1F2937;
+      --rep-text-light: #8A94A6;
+      --rep-border: #E6EAF0;
+      --rep-radius: 14px;
     }
-    .container-grafica h2 { text-align: center; margin-bottom: 10px; }
-    #conteo-pedidos {
-      margin-bottom: 15px;
-      font-weight: bold;
+
+    .dashboard-reportes {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 20px 40px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: var(--rep-text);
+    }
+
+    /* ---- Encabezado con título + controles ---- */
+    .rep-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .rep-header h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--rep-primary);
+      margin: 0;
+    }
+    .rep-header-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* ---- Auto-refresh badge ---- */
+    #refresh-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--rep-card);
+      border: 1px solid var(--rep-border);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      color: var(--rep-text-light);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    #refresh-badge .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--rep-accent-green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ---- Botón Exportar ---- */
+    #btn-exportar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--rep-primary);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+    #btn-exportar:hover { background: var(--rep-primary-light); transform: translateY(-1px); }
+
+    /* ---- Filtros ---- */
+    .rep-filtros-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+    .rep-filtros {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .rep-filtros button {
+      border: 1px solid var(--rep-border);
+      background: var(--rep-card);
+      color: var(--rep-text-light);
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .rep-filtros button:hover { border-color: var(--rep-primary-light); color: var(--rep-primary); }
+    .rep-filtros button.activo {
+      background: var(--rep-primary);
+      border-color: var(--rep-primary);
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(47,72,88,0.25);
+    }
+
+    /* ---- Selector de auxiliar ---- */
+    #sel-auxiliar {
+      border: 1px solid var(--rep-border);
+      background: var(--rep-card);
+      color: var(--rep-text);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    #sel-auxiliar:focus { border-color: var(--rep-primary-light); }
+
+    /* ---- KPIs ---- */
+    .rep-kpis {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    .rep-kpi {
+      background: var(--rep-card);
+      border-radius: var(--rep-radius);
+      padding: 20px;
       text-align: center;
+      box-shadow: 0 2px 10px rgba(31,41,55,0.05);
+      border: 1px solid var(--rep-border);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      position: relative;
+    }
+    .rep-kpi:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(31,41,55,0.08); }
+    .rep-kpi .valor { font-size: 1.9rem; font-weight: 800; line-height: 1.1; }
+    .rep-kpi .etiqueta { margin-top: 6px; font-size: 0.82rem; color: var(--rep-text-light); font-weight: 600; letter-spacing: 0.3px; }
+    .rep-kpi.kpi-azul .valor    { color: var(--rep-accent-2); }
+    .rep-kpi.kpi-naranja .valor { color: var(--rep-accent); }
+    .rep-kpi.kpi-verde .valor   { color: var(--rep-accent-green); }
+
+    /* ---- Tendencia KPI ---- */
+    .kpi-tendencia {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-top: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .kpi-tendencia.sube  { background: #DCFCE7; color: #166534; }
+    .kpi-tendencia.baja  { background: #FEE2E2; color: #991B1B; }
+    .kpi-tendencia.igual { background: #F3F4F6; color: #6B7280; }
+
+    /* ---- Cards ---- */
+    .rep-card {
+      background: var(--rep-card);
+      border-radius: var(--rep-radius);
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(31,41,55,0.05);
+      border: 1px solid var(--rep-border);
+      margin-bottom: 22px;
+    }
+    .rep-card h3 { margin: 0 0 14px; font-size: 1.1rem; color: var(--rep-primary); font-weight: 700; }
+    .rep-grafica-wrapper { position: relative; height: 360px; }
+
+    /* ---- Gráfica de tiempo ---- */
+    .graficas-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      margin-bottom: 22px;
+    }
+    @media (max-width: 860px) { .graficas-grid { grid-template-columns: 1fr; } }
+
+    /* ---- Tabla ---- */
+    .rep-tabla-wrapper { overflow-x: auto; }
+    table.rep-tabla { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 700px; }
+    table.rep-tabla thead th {
+      text-align: left; padding: 10px 12px; background: var(--rep-bg);
+      color: var(--rep-primary); font-weight: 700; border-bottom: 2px solid var(--rep-border);
+      position: sticky; top: 0;
+    }
+    table.rep-tabla td { padding: 9px 12px; border-bottom: 1px solid var(--rep-border); }
+    table.rep-tabla td:not(:first-child),
+    table.rep-tabla th:not(:first-child) { text-align: right; }
+    table.rep-tabla tbody tr:hover { background: #FAFBFD; }
+    table.rep-tabla tfoot td {
+      font-weight: 800; color: var(--rep-primary);
+      border-top: 2px solid var(--rep-primary); border-bottom: none; background: var(--rep-bg);
+    }
+
+    /* ---- Ranking ---- */
+    .rank-medal { font-size: 1.1rem; margin-right: 4px; }
+    .progress-bar-wrap {
+      display: flex; align-items: center; gap: 8px; justify-content: flex-end;
+    }
+    .progress-bar {
+      height: 8px; border-radius: 999px;
+      background: linear-gradient(90deg, var(--rep-accent), var(--rep-accent-2));
+      min-width: 4px; transition: width 0.4s ease;
+    }
+
+    .rep-cargando, .rep-vacio { text-align: center; color: var(--rep-text-light); padding: 30px 0; }
+    .monto-cell { color: var(--rep-accent-green); font-weight: 700; }
+
+    /* ---- Banner de diagnóstico ---- */
+    #diag-banner {
+      display: none; background: #fff3cd; border: 1px solid #ffc107;
+      border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+      font-size: 0.78rem; color: #856404; word-break: break-all; line-height: 1.6;
+    }
+    #diag-banner strong { display: block; margin-bottom: 4px; font-size: 0.82rem; }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 1000px) { .rep-kpis { grid-template-columns: repeat(3,1fr); } }
+    @media (max-width: 700px) {
+      .rep-kpis { grid-template-columns: repeat(2,1fr); gap: 10px; }
+      .rep-kpi { padding: 14px; }
+      .rep-kpi .valor { font-size: 1.5rem; }
+      .rep-filtros button { padding: 7px 13px; font-size: 0.8rem; }
+      .rep-grafica-wrapper { height: 260px; }
+      .rep-header { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
-
 <body>
- <nav class="navbar">
-  <div class="navbar-logo">
-    <img src="LOGO-Photoroom.png" alt="Logo" />
-    <span>Reportes de Pedidos</span>
-  </div>
-  <ul class="navbar-links">
-    <li><a href="index.html">📦 Pedidos</a></li>
-    <li><a href="Reportes.html">📊 Reporte</a></li>
-  </ul>
-</nav>
+  <nav class="navbar">
+    <div class="navbar-logo">
+      <img src="LOGO-Photoroom.png" alt="Logo" />
+      <span>Reportes de Pedidos</span>
+    </div>
+    <ul class="navbar-links">
+      <li><a href="index.html">📦 Pedidos</a></li>
+      <li><a href="Reportes.html">📊 Reporte</a></li>
+    </ul>
+  </nav>
 
-  <div class="container-grafica">
-    <h2>📊 Promedio por Sacador</h2>
-    <div id="conteo-pedidos">Total de pedidos: 0</div>
-    <canvas id="grafica-tiempo" width="900" height="350"></canvas>
+  <div class="dashboard-reportes">
+
+    <!-- Encabezado con título + badge + exportar -->
+    <div class="rep-header">
+      <h2>📊 Reporte de Pedidos por Auxiliar</h2>
+      <div class="rep-header-controls">
+        <div id="refresh-badge">
+          <span class="dot"></span>
+          <span id="refresh-texto">Actualiza en 5:00</span>
+        </div>
+        <button id="btn-exportar">⬇ Exportar CSV</button>
+      </div>
+    </div>
+
+    <!-- Filtros de fecha + selector de auxiliar -->
+    <div class="rep-filtros-row">
+      <div class="rep-filtros" id="rep-filtros">
+        <button data-rango="hoy" class="activo">Hoy</button>
+        <button data-rango="ayer">Ayer</button>
+        <button data-rango="semana">Esta semana</button>
+        <button data-rango="mes">Este mes</button>
+        <button data-rango="mesPasado">Mes pasado</button>
+        <button data-rango="todos">Todos</button>
+      </div>
+      <select id="sel-auxiliar">
+        <option value="">Todos los auxiliares</option>
+      </select>
+    </div>
+
+    <!-- KPIs con tendencia -->
+    <div class="rep-kpis">
+      <div class="rep-kpi kpi-azul">
+        <div class="valor" id="kpi-pedidos">0</div>
+        <div class="etiqueta">Total de Pedidos</div>
+        <div id="tend-pedidos"></div>
+      </div>
+      <div class="rep-kpi kpi-azul">
+        <div class="valor" id="kpi-tiempo">0</div>
+        <div class="etiqueta">Tiempo prom. por Artículo</div>
+        <div id="tend-tiempo"></div>
+      </div>
+      <div class="rep-kpi kpi-naranja">
+        <div class="valor" id="kpi-referencias">0</div>
+        <div class="etiqueta">Total de Referencias</div>
+        <div id="tend-referencias"></div>
+      </div>
+      <div class="rep-kpi kpi-naranja">
+        <div class="valor" id="kpi-bultos">0</div>
+        <div class="etiqueta">Total de Bultos</div>
+        <div id="tend-bultos"></div>
+      </div>
+      <div class="rep-kpi kpi-verde">
+        <div class="valor" id="kpi-monto">$0</div>
+        <div class="etiqueta">Monto Total</div>
+        <div id="tend-monto"></div>
+      </div>
+    </div>
+
+    <!-- Gráficas lado a lado -->
+    <div class="graficas-grid">
+      <div class="rep-card">
+        <h3>Pedidos y Referencias por Auxiliar</h3>
+        <div class="rep-grafica-wrapper">
+          <canvas id="grafica-auxiliares"></canvas>
+        </div>
+      </div>
+      <div class="rep-card">
+        <h3>⏱ Tiempo prom. por Artículo (seg)</h3>
+        <div class="rep-grafica-wrapper">
+          <canvas id="grafica-tiempo"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla con ranking -->
+    <div class="rep-card">
+      <h3>Detalle por Auxiliar</h3>
+      <div id="diag-banner"></div>
+      <div class="rep-tabla-wrapper">
+        <table class="rep-tabla">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Auxiliar</th>
+              <th>#Pedidos</th>
+              <th>#Referencias</th>
+              <th>Total de Bultos</th>
+              <th>Tiempo por Artículo</th>
+              <th>Monto Total</th>
+            </tr>
+          </thead>
+          <tbody id="rep-tabla-body">
+            <tr><td colspan="7" class="rep-cargando">Cargando datos...</td></tr>
+          </tbody>
+          <tfoot id="rep-tabla-foot"></tfoot>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
-    const API_SHEET = "https://api.sheetbest.com/sheets/8f3c4cce-1f76-488f-8402-9d6e21359ee1";
-    let chartGrafica = null;
+    // =============================================================
+    // CONFIGURACIÓN
+    // =============================================================
+    const API_SHEET = "https://api.sheetbest.com/sheets/cce35084-ee62-4934-b2ed-eb5fcd2d414b";
 
-    async function cargarGrafica() {
-      try {
-        const res = await fetch(API_SHEET);
-        const data = await res.json();
+    const CAMPOS = {
+      sacador:     ["Sacador", "Sacador "],
+      horaFin:     ["HoraFin", "HoraFin "],
+      referencias: ["CantidadProductos", "CantidadProductos "],
+      bultos:      ["Bultos", "Bultos "],
+      tiempo:      ["Grafica", "Grafica ", "TiempoPorProducto", "TiempoPorProducto "],
+      monto:       ["MontoFinal", "MontoFinal "]
+    };
 
-        const mapa = {};
-        let totalPedidos = 0;
+    const UMBRAL_REF_POR_PEDIDO = 500;
+    const REFRESH_INTERVAL_MS   = 5 * 60 * 1000; // 5 min
 
-        data.forEach(row => {
-          const nombre = String(row["Sacador"] || "").trim();
-          const limpio = String(row["Grafica"] || "").trim();
-          const num = parseFloat(limpio);
+    let graficaAuxiliares  = null;
+    let graficaTiempo      = null;
+    let rangoActual        = "hoy";
+    let filtroAuxiliar     = "";
+    let todosLosDatos      = [];      // cache de la última carga completa
+    let kpisAnteriores     = null;    // para tendencias
+    let timerInterval      = null;
+    let timerSegundos      = REFRESH_INTERVAL_MS / 1000;
 
-          if (!nombre || isNaN(num)) return;
+    // =============================================================
+    // UTILIDADES
+    // =============================================================
+    function obtenerCampo(obj, posibles) {
+      for (const key of posibles) {
+        const val = obj[key];
+        if (val !== undefined && val !== null && String(val).trim() !== "") return val;
+      }
+      return "";
+    }
 
-          totalPedidos++;
+    function obtenerCampoInfo(obj, posibles) {
+      for (const key of posibles) {
+        const val = obj[key];
+        if (val !== undefined && val !== null && String(val).trim() !== "") return { key, val };
+      }
+      return { key: "❌ NO ENCONTRADO", val: "" };
+    }
 
-          if (!mapa[nombre]) {
-            mapa[nombre] = { total: 0, count: 0 };
-          }
+    function parsearNumero(raw) {
+      const str = String(raw).trim();
+      if (str.includes(",") && str.includes(".")) return parseFloat(str.replace(/,/g, ""));
+      if (str.includes(",") && !str.includes(".")) return parseFloat(str.replace(",", "."));
+      return parseFloat(str);
+    }
 
-          mapa[nombre].total += num;
-          mapa[nombre].count++;
-        });
+    function obtenerNumero(obj, posibles) {
+      const raw = obtenerCampo(obj, posibles);
+      if (raw === "") return 0;
+      const v = parsearNumero(raw);
+      return isNaN(v) ? 0 : v;
+    }
 
-        document.getElementById("conteo-pedidos").textContent =
-          `Total de pedidos: ${totalPedidos}`;
+    function obtenerMonto(obj, posibles) {
+      const raw = String(obtenerCampo(obj, posibles)).replace(/\$/g, "").replace(/,/g, "");
+      const v = parseFloat(raw);
+      return isNaN(v) ? 0 : v;
+    }
 
-        const labels = [];
-        const dataset = [];
+    // =============================================================
+    // FECHAS
+    // =============================================================
+    function esMismaFecha(f1, f2) {
+      return f1.getFullYear() === f2.getFullYear() && f1.getMonth() === f2.getMonth() && f1.getDate() === f2.getDate();
+    }
 
-        Object.entries(mapa).forEach(([nombre, info]) => {
-          labels.push(`${nombre} (${info.count})`);
-          dataset.push(info.total / info.count);
-        });
+    function estaMismaSemana(fecha, ref) {
+      const inicio = new Date(ref);
+      inicio.setDate(ref.getDate() - ref.getDay());
+      inicio.setHours(0, 0, 0, 0);
+      const fin = new Date(inicio);
+      fin.setDate(inicio.getDate() + 6);
+      fin.setHours(23, 59, 59, 999);
+      return fecha >= inicio && fecha <= fin;
+    }
 
-        const ctx = document.getElementById("grafica-tiempo").getContext("2d");
-
-        if (chartGrafica) {
-          chartGrafica.data.labels = labels;
-          chartGrafica.data.datasets[0].data = dataset;
-          chartGrafica.update();
-          return;
+    function pasaFiltroFecha(fecha, rango, ahora) {
+      switch (rango) {
+        case "hoy":  return esMismaFecha(fecha, ahora);
+        case "ayer": {
+          const ayer = new Date(ahora); ayer.setDate(ahora.getDate() - 1);
+          return esMismaFecha(fecha, ayer);
         }
-
-        chartGrafica = new Chart(ctx, {
-          type: "bar",
-          data: {
-            labels,
-            datasets: [{
-              label: "Promedio por Sacador",
-              data: dataset,
-              backgroundColor: "rgba(54,162,235,0.6)",
-              borderColor: "rgba(54,162,235,1)",
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            scales: {
-              y: { beginAtZero: true, title: { display: true, text: "Valor" } },
-              x: { title: { display: true, text: "Sacador (Pedidos)" } }
-            }
-          }
-        });
-
-      } catch (e) {
-        console.error("Error cargando gráfica:", e);
+        case "semana": return estaMismaSemana(fecha, ahora);
+        case "mes":
+          return fecha.getMonth() === ahora.getMonth() && fecha.getFullYear() === ahora.getFullYear();
+        case "mesPasado": {
+          const mp = new Date(ahora); mp.setMonth(ahora.getMonth() - 1);
+          return fecha.getMonth() === mp.getMonth() && fecha.getFullYear() === mp.getFullYear();
+        }
+        case "todos": return true;
+        default: return false;
       }
     }
 
+    // Devuelve el rango "anterior" equivalente para comparar tendencias
+    function rangoAnterior(rango) {
+      switch (rango) {
+        case "hoy":       return "ayer";
+        case "ayer":      return "antesDeAyer";
+        case "semana":    return "semanaAnterior";
+        case "mes":       return "mesPasado";
+        case "mesPasado": return "mesAntePasado";
+        default:          return null;
+      }
+    }
+
+    function pasaFiltroFechaExt(fecha, rango, ahora) {
+      // Extiende pasaFiltroFecha con rangos adicionales para tendencias
+      if (rango === "antesDeAyer") {
+        const antier = new Date(ahora); antier.setDate(ahora.getDate() - 2);
+        return esMismaFecha(fecha, antier);
+      }
+      if (rango === "semanaAnterior") {
+        const semPasada = new Date(ahora); semPasada.setDate(ahora.getDate() - 7);
+        return estaMismaSemana(fecha, semPasada);
+      }
+      if (rango === "mesAntePasado") {
+        const map = new Date(ahora); map.setMonth(ahora.getMonth() - 2);
+        return fecha.getMonth() === map.getMonth() && fecha.getFullYear() === map.getFullYear();
+      }
+      return pasaFiltroFecha(fecha, rango, ahora);
+    }
+
+    // =============================================================
+    // FORMATO
+    // =============================================================
+    function formatNumero(n) {
+      if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1) + "M";
+      if (Math.abs(n) >= 10000)   return Math.round(n / 1000) + "K";
+      if (Math.abs(n) >= 1000)    return (n / 1000).toFixed(1) + "K";
+      return Math.round(n).toLocaleString("es-DO");
+    }
+
+    function formatMonto(n) {
+      if (Math.abs(n) >= 1000000) return "$" + (n / 1000000).toFixed(2) + "M";
+      if (Math.abs(n) >= 1000)    return "$" + (n / 1000).toFixed(1) + "K";
+      return "$" + n.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatMontoCompleto(n) {
+      return "$" + n.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // =============================================================
+    // TENDENCIAS
+    // =============================================================
+    function calcularKPIs(pedidos) {
+      let refs = 0, bultos = 0, monto = 0, sumaTiempos = 0, cantTiempos = 0;
+      pedidos.forEach(p => {
+        refs   += obtenerNumero(p, CAMPOS.referencias);
+        bultos += obtenerNumero(p, CAMPOS.bultos);
+        monto  += obtenerMonto(p,  CAMPOS.monto);
+        const t = obtenerNumero(p, CAMPOS.tiempo);
+        if (t > 0) { sumaTiempos += t; cantTiempos++; }
+      });
+      return {
+        pedidos:    pedidos.length,
+        referencias: refs,
+        bultos,
+        monto,
+        tiempo: cantTiempos > 0 ? sumaTiempos / cantTiempos : 0
+      };
+    }
+
+    function renderTendencia(idEl, actual, anterior) {
+      const el = document.getElementById(idEl);
+      if (!el || anterior === 0) { if (el) el.innerHTML = ""; return; }
+      const pct = ((actual - anterior) / anterior) * 100;
+      const abs = Math.abs(pct).toFixed(1);
+      if (pct > 0.5) {
+        el.innerHTML = `<span class="kpi-tendencia sube">▲ ${abs}% vs anterior</span>`;
+      } else if (pct < -0.5) {
+        el.innerHTML = `<span class="kpi-tendencia baja">▼ ${abs}% vs anterior</span>`;
+      } else {
+        el.innerHTML = `<span class="kpi-tendencia igual">= Sin cambio</span>`;
+      }
+    }
+
+    // =============================================================
+    // DIAGNÓSTICO AUTOMÁTICO
+    // =============================================================
+    function mostrarDiagnostico(primerRegistro, totalRefs, totalPedidos) {
+      if (!primerRegistro || totalPedidos === 0) return;
+      const promedio = totalRefs / totalPedidos;
+      if (promedio <= UMBRAL_REF_POR_PEDIDO) return;
+
+      const numericas = Object.entries(primerRegistro)
+        .filter(([, v]) => { const n = parsearNumero(String(v).replace(/\$/g, "").replace(/,/g, "")); return !isNaN(n); })
+        .map(([k, v]) => `<b>${k}</b>: ${v}`)
+        .join(" &nbsp;|&nbsp; ");
+
+      const campoUsado = obtenerCampoInfo(primerRegistro, CAMPOS.referencias);
+      const banner = document.getElementById("diag-banner");
+      banner.style.display = "block";
+      banner.innerHTML = `
+        <strong>⚠️ Las referencias parecen incorrectas (${Math.round(promedio).toLocaleString()} por pedido en promedio).
+        Campo que se está usando: <u>${campoUsado.key}</u> = ${campoUsado.val}</strong>
+        Columnas numéricas disponibles en la hoja:<br>${numericas}<br><br>
+        👉 <b>Dile a Fran qué columna tiene el número correcto de referencias</b>
+        y se agrega ese nombre exactamente a <code>CAMPOS.referencias</code>.
+      `;
+    }
+
+    function ocultarDiagnostico() {
+      const banner = document.getElementById("diag-banner");
+      banner.style.display = "none";
+      banner.innerHTML = "";
+    }
+
+    // =============================================================
+    // TIMER DE REFRESH
+    // =============================================================
+    function iniciarTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerSegundos = REFRESH_INTERVAL_MS / 1000;
+      timerInterval = setInterval(() => {
+        timerSegundos--;
+        const min = String(Math.floor(timerSegundos / 60)).padStart(1, "0");
+        const seg = String(timerSegundos % 60).padStart(2, "0");
+        document.getElementById("refresh-texto").textContent = `Actualiza en ${min}:${seg}`;
+        if (timerSegundos <= 0) {
+          cargarReporte(rangoActual);
+        }
+      }, 1000);
+    }
+
+    // =============================================================
+    // SELECTOR DE AUXILIAR
+    // =============================================================
+    function actualizarSelectorAuxiliares(data) {
+      const sel = document.getElementById("sel-auxiliar");
+      const valorActual = sel.value;
+      const nombres = [...new Set(
+        data.map(p => String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim()).filter(Boolean)
+      )].sort();
+
+      sel.innerHTML = `<option value="">Todos los auxiliares</option>` +
+        nombres.map(n => `<option value="${n}" ${n === valorActual ? "selected" : ""}>${n}</option>`).join("");
+      filtroAuxiliar = sel.value;
+    }
+
+    // =============================================================
+    // EXPORTAR CSV
+    // =============================================================
+    function exportarCSV(filas, totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto) {
+      const BOM = "\uFEFF";
+      const cabecera = ["Auxiliar", "#Pedidos", "#Referencias", "Total de Bultos", "Tiempo por Artículo", "Monto Total"].join(";");
+      const filasTxt = filas.map(f =>
+        [f.nombre, f.pedidos, f.referencias, f.bultos, f.tiempoProm.toFixed(2), f.monto.toFixed(2)].join(";")
+      );
+      filasTxt.push(["Total", totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral.toFixed(2), totalMonto.toFixed(2)].join(";"));
+
+      const csv = BOM + cabecera + "\n" + filasTxt.join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      const fecha = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `reporte_pedidos_${rangoActual}_${fecha}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Guardamos filas actuales para el botón de exportar
+    let filasActuales = [];
+    let totalesActuales = {};
+
+    // =============================================================
+    // CARGA
+    // =============================================================
+    function cargarReporte(rango) {
+      rangoActual = rango;
+      document.getElementById("rep-tabla-body").innerHTML =
+        `<tr><td colspan="7" class="rep-cargando">Cargando datos...</td></tr>`;
+      ocultarDiagnostico();
+      iniciarTimer();
+
+      fetch(API_SHEET)
+        .then(res => res.json())
+        .then(data => {
+          todosLosDatos = data;
+          actualizarSelectorAuxiliares(data);
+          aplicarFiltrosYRenderizar(data, rango);
+        })
+        .catch(err => {
+          console.error("❌ Error al cargar el reporte:", err);
+          document.getElementById("rep-tabla-body").innerHTML =
+            `<tr><td colspan="7" class="rep-vacio">No se pudieron cargar los datos.</td></tr>`;
+        });
+    }
+
+    function aplicarFiltrosYRenderizar(data, rango) {
+      const ahora = new Date();
+
+      const pedidosFiltrados = data.filter(p => {
+        const fechaStr = obtenerCampo(p, CAMPOS.horaFin);
+        const fecha    = new Date(fechaStr);
+        if (isNaN(fecha.getTime())) return false;
+        if (!pasaFiltroFecha(fecha, rango, ahora)) return false;
+        if (filtroAuxiliar) {
+          const sac = String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim();
+          if (sac !== filtroAuxiliar) return false;
+        }
+        return true;
+      });
+
+      // Calcular KPIs del periodo anterior para tendencias
+      const rAnterior = rangoAnterior(rango);
+      let kpisAnt = null;
+      if (rAnterior) {
+        const pedidosAnt = data.filter(p => {
+          const fechaStr = obtenerCampo(p, CAMPOS.horaFin);
+          const fecha    = new Date(fechaStr);
+          if (isNaN(fecha.getTime())) return false;
+          return pasaFiltroFechaExt(fecha, rAnterior, ahora);
+        });
+        kpisAnt = calcularKPIs(pedidosAnt);
+      }
+
+      procesarYRenderizar(pedidosFiltrados, data[0] || null, kpisAnt);
+    }
+
+    // =============================================================
+    // PROCESAMIENTO
+    // =============================================================
+    function procesarYRenderizar(pedidos, primerRegistroRaw, kpisAnt) {
+      const auxiliares = {};
+      let totalReferencias = 0, totalBultos = 0, totalMonto = 0;
+      let sumaTiempos = 0, cantidadTiempos = 0;
+
+      pedidos.forEach(p => {
+        const sacador     = String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim();
+        const referencias = obtenerNumero(p, CAMPOS.referencias);
+        const bultos      = obtenerNumero(p, CAMPOS.bultos);
+        const tiempo      = obtenerNumero(p, CAMPOS.tiempo);
+        const monto       = obtenerMonto(p,  CAMPOS.monto);
+
+        if (!auxiliares[sacador]) {
+          auxiliares[sacador] = { pedidos: 0, referencias: 0, bultos: 0, monto: 0, sumaTiempos: 0, cantidadTiempos: 0 };
+        }
+
+        auxiliares[sacador].pedidos     += 1;
+        auxiliares[sacador].referencias += referencias;
+        auxiliares[sacador].bultos      += bultos;
+        auxiliares[sacador].monto       += monto;
+        totalReferencias += referencias;
+        totalBultos      += bultos;
+        totalMonto       += monto;
+
+        if (tiempo > 0) {
+          auxiliares[sacador].sumaTiempos     += tiempo;
+          auxiliares[sacador].cantidadTiempos += 1;
+          sumaTiempos     += tiempo;
+          cantidadTiempos += 1;
+        }
+      });
+
+      const filas = Object.entries(auxiliares).map(([nombre, d]) => ({
+        nombre,
+        pedidos:     d.pedidos,
+        referencias: d.referencias,
+        bultos:      d.bultos,
+        monto:       d.monto,
+        tiempoProm:  d.cantidadTiempos > 0 ? d.sumaTiempos / d.cantidadTiempos : 0
+      }));
+      filas.sort((a, b) => b.pedidos - a.pedidos);
+
+      const tiempoPromGeneral = cantidadTiempos > 0 ? sumaTiempos / cantidadTiempos : 0;
+
+      filasActuales  = filas;
+      totalesActuales = { totalPedidos: pedidos.length, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto };
+
+      mostrarDiagnostico(primerRegistroRaw, totalReferencias, pedidos.length);
+      renderizarKPIs(pedidos.length, tiempoPromGeneral, totalReferencias, totalBultos, totalMonto, kpisAnt);
+      renderizarTabla(filas, pedidos.length, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto);
+      renderizarGraficaAuxiliares(filas);
+      renderizarGraficaTiempo(filas);
+    }
+
+    // =============================================================
+    // RENDERIZADO
+    // =============================================================
+    function renderizarKPIs(totalPedidos, tiempoProm, totalReferencias, totalBultos, totalMonto, kpisAnt) {
+      document.getElementById("kpi-pedidos").textContent     = formatNumero(totalPedidos);
+      document.getElementById("kpi-tiempo").textContent      = tiempoProm.toFixed(2);
+      document.getElementById("kpi-referencias").textContent = formatNumero(totalReferencias);
+      document.getElementById("kpi-bultos").textContent      = formatNumero(totalBultos);
+      document.getElementById("kpi-monto").textContent       = formatMonto(totalMonto);
+
+      if (kpisAnt) {
+        renderTendencia("tend-pedidos",    totalPedidos,    kpisAnt.pedidos);
+        renderTendencia("tend-tiempo",     tiempoProm,      kpisAnt.tiempo);
+        renderTendencia("tend-referencias",totalReferencias,kpisAnt.referencias);
+        renderTendencia("tend-bultos",     totalBultos,     kpisAnt.bultos);
+        renderTendencia("tend-monto",      totalMonto,      kpisAnt.monto);
+      } else {
+        ["tend-pedidos","tend-tiempo","tend-referencias","tend-bultos","tend-monto"]
+          .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ""; });
+      }
+    }
+
+    const MEDALLAS = ["🥇","🥈","🥉"];
+
+    function renderizarTabla(filas, totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto) {
+      const tbody = document.getElementById("rep-tabla-body");
+      const tfoot = document.getElementById("rep-tabla-foot");
+
+      if (filas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="rep-vacio">No se encontraron pedidos en este periodo.</td></tr>`;
+        tfoot.innerHTML = "";
+        return;
+      }
+
+      const maxPedidos = filas[0].pedidos || 1;
+
+      tbody.innerHTML = filas.map((f, i) => {
+        const medalla = i < 3 ? `<span class="rank-medal">${MEDALLAS[i]}</span>` : `<span style="color:var(--rep-text-light);font-size:0.8rem">${i+1}</span>`;
+        const barraW  = Math.round((f.pedidos / maxPedidos) * 80);
+        const barra   = `<div class="progress-bar-wrap">
+          <span>${f.pedidos.toLocaleString("es-DO")}</span>
+          <div class="progress-bar" style="width:${barraW}px"></div>
+        </div>`;
+        return `<tr>
+          <td style="text-align:center">${medalla}</td>
+          <td>${f.nombre}</td>
+          <td>${barra}</td>
+          <td>${f.referencias.toLocaleString("es-DO")}</td>
+          <td>${f.bultos.toLocaleString("es-DO")}</td>
+          <td>${f.tiempoProm.toFixed(2)}</td>
+          <td class="monto-cell">${formatMontoCompleto(f.monto)}</td>
+        </tr>`;
+      }).join("");
+
+      tfoot.innerHTML = `<tr>
+        <td></td>
+        <td>Total</td>
+        <td>${totalPedidos.toLocaleString("es-DO")}</td>
+        <td>${totalReferencias.toLocaleString("es-DO")}</td>
+        <td>${totalBultos.toLocaleString("es-DO")}</td>
+        <td>${tiempoPromGeneral.toFixed(2)}</td>
+        <td class="monto-cell">${formatMontoCompleto(totalMonto)}</td>
+      </tr>`;
+    }
+
+    function renderizarGraficaAuxiliares(filas) {
+      const ctx = document.getElementById("grafica-auxiliares").getContext("2d");
+      const labels           = filas.map(f => f.nombre);
+      const datosPedidos     = filas.map(f => f.pedidos);
+      const datosReferencias = filas.map(f => f.referencias);
+
+      const dataConfig = {
+        labels,
+        datasets: [
+          { type: "bar",  label: "# Pedidos",    data: datosPedidos,     backgroundColor: "rgba(242,132,92,0.75)", borderColor: "rgba(242,132,92,1)", borderWidth: 1, yAxisID: "y" },
+          { type: "line", label: "# Referencias", data: datosReferencias, borderColor: "rgba(47,72,88,1)", backgroundColor: "rgba(47,72,88,0.15)", borderWidth: 2, tension: 0.35, fill: true, pointRadius: 2, yAxisID: "y1" }
+        ]
+      };
+
+      if (graficaAuxiliares) {
+        graficaAuxiliares.data = dataConfig;
+        graficaAuxiliares.update();
+        return;
+      }
+
+      graficaAuxiliares = new Chart(ctx, {
+        data: dataConfig,
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: { legend: { position: "top" }, tooltip: { enabled: true } },
+          scales: {
+            x:  { ticks: { autoSkip: false, maxRotation: 75, minRotation: 45, font: { size: 10 } } },
+            y:  { type: "linear", position: "left",  beginAtZero: true, title: { display: true, text: "# Pedidos" } },
+            y1: { type: "linear", position: "right", beginAtZero: true, title: { display: true, text: "# Referencias" }, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+    }
+
+    function renderizarGraficaTiempo(filas) {
+      const ctx = document.getElementById("grafica-tiempo").getContext("2d");
+      const conTiempo = filas.filter(f => f.tiempoProm > 0);
+      const labels = conTiempo.map(f => f.nombre);
+      const datos  = conTiempo.map(f => parseFloat(f.tiempoProm.toFixed(2)));
+
+      const dataConfig = {
+        labels,
+        datasets: [{
+          label: "Seg. por artículo",
+          data: datos,
+          backgroundColor: conTiempo.map((_, i) => i === 0 ? "rgba(79,163,209,0.9)" : "rgba(79,163,209,0.5)"),
+          borderColor: "rgba(79,163,209,1)",
+          borderWidth: 1,
+          borderRadius: 6
+        }]
+      };
+
+      if (graficaTiempo) {
+        graficaTiempo.data = dataConfig;
+        graficaTiempo.update();
+        return;
+      }
+
+      graficaTiempo = new Chart(ctx, {
+        type: "bar",
+        data: dataConfig,
+        options: {
+          indexAxis: "y",
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} seg` } } },
+          scales: {
+            x: { beginAtZero: true, title: { display: true, text: "Segundos" } },
+            y: { ticks: { font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    // =============================================================
+    // INICIALIZACIÓN
+    // =============================================================
+    document.querySelectorAll("#rep-filtros button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#rep-filtros button").forEach(b => b.classList.remove("activo"));
+        btn.classList.add("activo");
+        cargarReporte(btn.dataset.rango);
+      });
+    });
+
+    document.getElementById("sel-auxiliar").addEventListener("change", function () {
+      filtroAuxiliar = this.value;
+      if (todosLosDatos.length > 0) aplicarFiltrosYRenderizar(todosLosDatos, rangoActual);
+    });
+
+    document.getElementById("btn-exportar").addEventListener("click", () => {
+      const { totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto } = totalesActuales;
+      exportarCSV(filasActuales, totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto);
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
-      cargarGrafica();
-      setInterval(cargarGrafica, 5 * 60 * 1000);
+      cargarReporte(rangoActual);
     });
   </script>
 </body>
