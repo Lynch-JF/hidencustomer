@@ -183,8 +183,23 @@
       border: 1px solid var(--rep-border);
       margin-bottom: 22px;
     }
-    .rep-card h3 { margin: 0 0 14px; font-size: 1.1rem; color: var(--rep-primary); font-weight: 700; }
+    .rep-card h3 { margin: 0 0 6px; font-size: 1.1rem; color: var(--rep-primary); font-weight: 700; }
+
+    .rep-card-subtitulo {
+      font-size: 0.78rem;
+      color: var(--rep-text-light);
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .rep-card-subtitulo .dot-ind  { width: 9px; height: 9px; border-radius: 50%; background: var(--rep-accent); display: inline-block; }
+    .rep-card-subtitulo .dot-team { width: 9px; height: 9px; border-radius: 50%; background: var(--rep-accent-team); display: inline-block; }
+    .rep-card-subtitulo .dot-blue { width: 9px; height: 9px; border-radius: 50%; background: var(--rep-accent-2); display: inline-block; }
+
     .rep-grafica-wrapper { position: relative; height: 360px; }
+    .rep-grafica-wrapper.compacta { height: 240px; }
 
     .graficas-grid {
       display: grid;
@@ -192,9 +207,23 @@
       gap: 22px;
       margin-bottom: 22px;
     }
-    @media (max-width: 860px) { .graficas-grid { grid-template-columns: 1fr; } }
 
-    /* Chip de filtro activo en la gráfica de tiempo */
+    .graficas-tiempo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      margin-bottom: 22px;
+    }
+
+    .grafica-full {
+      margin-bottom: 22px;
+    }
+
+    @media (max-width: 860px) {
+      .graficas-grid { grid-template-columns: 1fr; }
+      .graficas-tiempo-grid { grid-template-columns: 1fr; }
+    }
+
     .grafica-filtro-activo {
       display: none;
       align-items: center;
@@ -211,16 +240,19 @@
     }
     .grafica-filtro-activo.visible { display: flex; }
     .grafica-filtro-activo button {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      color: var(--rep-accent);
-      padding: 0;
-      line-height: 1;
-      font-weight: 900;
+      background: none; border: none; cursor: pointer;
+      font-size: 0.9rem; color: var(--rep-accent);
+      padding: 0; line-height: 1; font-weight: 900;
     }
     .grafica-filtro-activo button:hover { color: #c0603a; }
+
+    .sin-equipos-aviso {
+      text-align: center;
+      color: var(--rep-text-light);
+      font-size: 0.88rem;
+      padding: 30px 0;
+      font-style: italic;
+    }
 
     .rep-tabla-wrapper { overflow-x: auto; }
     table.rep-tabla { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 700px; }
@@ -237,85 +269,46 @@
       font-weight: 800; color: var(--rep-primary);
       border-top: 2px solid var(--rep-primary); border-bottom: none; background: var(--rep-bg);
     }
-
-    /* Fila de equipo */
     table.rep-tabla tbody tr.fila-equipo td { background: #F5F3FF; }
     table.rep-tabla tbody tr.fila-equipo:hover td { background: #EDE9FE; }
 
     .badge-equipo {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      background: #EDE9FE;
-      color: #6D28D9;
-      border: 1px solid #C4B5FD;
-      border-radius: 999px;
-      padding: 2px 8px;
-      font-size: 0.73rem;
-      font-weight: 700;
-      margin-left: 6px;
-      vertical-align: middle;
+      display: inline-flex; align-items: center; gap: 3px;
+      background: #EDE9FE; color: #6D28D9; border: 1px solid #C4B5FD;
+      border-radius: 999px; padding: 2px 8px;
+      font-size: 0.73rem; font-weight: 700; margin-left: 6px; vertical-align: middle;
     }
 
     .rank-medal { font-size: 1.1rem; margin-right: 4px; }
-    .progress-bar-wrap {
-      display: flex; align-items: center; gap: 8px; justify-content: flex-end;
-    }
+    .progress-bar-wrap { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
     .progress-bar {
       height: 8px; border-radius: 999px;
       background: linear-gradient(90deg, var(--rep-accent), var(--rep-accent-2));
       min-width: 4px; transition: width 0.4s ease;
     }
-    .progress-bar.equipo-bar {
-      background: linear-gradient(90deg, #8B5CF6, #C4B5FD);
-    }
+    .progress-bar.equipo-bar { background: linear-gradient(90deg, #8B5CF6, #C4B5FD); }
 
     .tiempo-max-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: #FDF2F8;
-      color: #BE185D;
-      border: 1px solid #F9A8D4;
-      border-radius: 999px;
-      padding: 2px 8px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      margin-left: 6px;
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #FDF2F8; color: #BE185D; border: 1px solid #F9A8D4;
+      border-radius: 999px; padding: 2px 8px;
+      font-size: 0.78rem; font-weight: 700; margin-left: 6px;
     }
     .tiempo-cell-max { color: #BE185D; font-weight: 800; }
 
     .rep-cargando, .rep-vacio { text-align: center; color: var(--rep-text-light); padding: 30px 0; }
     .monto-cell { color: var(--rep-accent-green); font-weight: 700; }
 
-    /* Leyenda de la tabla */
-    .rep-leyenda {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
-    }
-    .leyenda-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.8rem;
-      color: var(--rep-text-light);
-      font-weight: 600;
-    }
-    .leyenda-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-    }
-    .leyenda-dot.individual { background: var(--rep-accent); }
-    .leyenda-dot.equipo     { background: var(--rep-accent-team); }
-
-    /* Hint clickeable debajo de la gráfica izquierda */
     .grafica-hint {
-      text-align: center;
-      font-size: 0.75rem;
-      color: var(--rep-text-light);
-      margin-top: 8px;
-      font-style: italic;
+      text-align: center; font-size: 0.75rem;
+      color: var(--rep-text-light); margin-top: 8px; font-style: italic;
+    }
+
+    .tiempo-wrapper-ind,
+    .tiempo-wrapper-team {
+      position: relative;
+      overflow: hidden;
+      transition: height 0.3s ease;
     }
 
     @media (max-width: 1000px) { .rep-kpis { grid-template-columns: repeat(3,1fr); } }
@@ -382,6 +375,7 @@
       </select>
     </div>
 
+    <!-- KPIs -->
     <div class="rep-kpis">
       <div class="rep-kpi kpi-azul">
         <div class="valor" id="kpi-pedidos">0</div>
@@ -410,39 +404,71 @@
       </div>
     </div>
 
+    <!-- FILA 1: Pedidos individuales + Pedidos equipos -->
     <div class="graficas-grid">
       <div class="rep-card">
-        <h3>Pedidos y Referencias por Auxiliar</h3>
+        <h3>👤 Pedidos y Referencias — Individuales</h3>
+        <div class="rep-card-subtitulo">
+          <span class="dot-ind"></span> Solo auxiliares individuales
+        </div>
         <div class="rep-grafica-wrapper">
-          <canvas id="grafica-auxiliares"></canvas>
+          <canvas id="grafica-individuales"></canvas>
         </div>
         <p class="grafica-hint">💡 Haz clic en una barra para filtrar la gráfica de tiempo</p>
       </div>
+
       <div class="rep-card">
-        <h3>⏱ Tiempo prom. por Artículo (mm:ss)</h3>
-        <!-- Chip que muestra quién está filtrado -->
-        <div class="grafica-filtro-activo" id="chip-filtro-tiempo">
-          <span id="chip-filtro-nombre"></span>
-          <button onclick="limpiarFiltroGrafica()" title="Quitar filtro">✕</button>
+        <h3>👥 Pedidos y Referencias — Equipos</h3>
+        <div class="rep-card-subtitulo">
+          <span class="dot-team"></span> Pedidos realizados en conjunto (sacador con "/")
         </div>
-        <div class="rep-grafica-wrapper">
-          <canvas id="grafica-tiempo"></canvas>
+        <div id="grafica-equipos-wrapper" class="rep-grafica-wrapper compacta">
+          <canvas id="grafica-equipos"></canvas>
+        </div>
+        <div id="sin-equipos" class="sin-equipos-aviso" style="display:none">
+          No hay pedidos de equipo en este periodo.
         </div>
       </div>
     </div>
 
-    <div class="rep-card">
-      <h3>Detalle por Auxiliar</h3>
-      <div class="rep-leyenda">
-        <div class="leyenda-item">
-          <div class="leyenda-dot individual"></div>
-          <span>Individual</span>
+    <!-- FILA 2: Tiempo individuales + Tiempo equipos -->
+    <div class="graficas-tiempo-grid">
+
+      <div class="rep-card">
+        <h3>⏱ Tiempo por Artículo — Individuales (mm:ss)</h3>
+        <div class="rep-card-subtitulo">
+          <span class="dot-blue"></span> Solo auxiliares individuales
         </div>
-        <div class="leyenda-item">
-          <div class="leyenda-dot equipo"></div>
-          <span>Equipo (pedido compartido — referencias contadas 1 sola vez)</span>
+        <div class="grafica-filtro-activo" id="chip-filtro-tiempo">
+          <span id="chip-filtro-nombre"></span>
+          <button onclick="limpiarFiltroGrafica()" title="Quitar filtro">✕</button>
+        </div>
+        <div class="tiempo-wrapper-ind" id="tiempo-wrapper-ind" style="height:320px;">
+          <canvas id="grafica-tiempo-ind"></canvas>
+        </div>
+        <div id="sin-ind-tiempo" class="sin-equipos-aviso" style="display:none;">
+          No hay datos individuales en este periodo.
         </div>
       </div>
+
+      <div class="rep-card">
+        <h3>⏱ Tiempo por Artículo — Equipos (mm:ss)</h3>
+        <div class="rep-card-subtitulo">
+          <span class="dot-team"></span> Solo pedidos de equipo (con "/")
+        </div>
+        <div class="tiempo-wrapper-team" id="tiempo-wrapper-team" style="height:320px;">
+          <canvas id="grafica-tiempo-team"></canvas>
+        </div>
+        <div id="sin-team-tiempo" class="sin-equipos-aviso" style="display:none;">
+          No hay pedidos de equipo en este periodo.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabla detalle -->
+    <div class="rep-card">
+      <h3>Detalle por Auxiliar</h3>
       <div class="rep-tabla-wrapper">
         <table class="rep-tabla">
           <thead>
@@ -470,26 +496,8 @@
 
     const API_SHEET = "https://api.sheetbest.com/sheets/cce35084-ee62-4934-b2ed-eb5fcd2d414b";
 
-    // ─── Lista canónica de auxiliares individuales (idéntica al select del index) ──
-    const AUXILIARES_INDIVIDUALES = [
-      "Omar Marmolejos Fajardo",
-      "Jairo Fernandez Salcedo",
-      "Ismael Augusto Veras Lasuse",
-      "Fernando Antonio Burgos Cabrera",
-      "Juan De Jesús Peña Pérez",
-      "Luis David Nuñez Santos",
-      "Yustin Alexander Mendez",
-      "Luis Eduardo Reyes",
-      "Omelbe Gomez Valdez",
-      "Bryhan Santo Cordero",
-      "Enrique Nuñez Brito",
-      "Cirilo Reynoso Acevedo",
-      "Yan Carlos Cruz Paulino",
-      "Wilkin Ortega Diaz",
-    ];
-
-    // Máx referencias razonables por pedido (para sanitizar datos corruptos)
     const MAX_REFS_POR_PEDIDO = 500;
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
     const CAMPOS = {
       sacador:     ["Sacador", "Sacador "],
@@ -500,28 +508,26 @@
       monto:       ["MontoFinal", "MontoFinal "]
     };
 
-    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    let graficaIndividuales  = null;
+    let graficaEquipos       = null;
+    let graficaTiempoInd     = null;
+    let graficaTiempoTeam    = null;
 
-    let graficaAuxiliares = null;
-    let graficaTiempo     = null;
-    let rangoActual       = "hoy";
-    let filtroAuxiliar    = "";
-    let todosLosDatos     = [];
-    let timerInterval     = null;
-    let timerSegundos     = REFRESH_INTERVAL_MS / 1000;
-    let filasActuales     = [];
-    let totalesActuales   = {};
+    let rangoActual     = "hoy";
+    let filtroAuxiliar  = "";
+    let todosLosDatos   = [];
+    let timerInterval   = null;
+    let timerSegundos   = REFRESH_INTERVAL_MS / 1000;
+    let filasActuales   = [];
+    let totalesActuales = {};
 
-    // Estado del filtro de gráfica de tiempo (click en barra naranja)
-    let filtroGraficaTiempo = null; // null = sin filtro, string = nombre del auxiliar
+    let filtroGraficaTiempo = null;
 
-    // ─── Detectar si un sacador es un equipo ──────────────────────────────────
-    // Es equipo si contiene "/" (ej: "Jairo/Luis Alberto", "Yan / Luis David")
+    // ─── Helpers ─────────────────────────────────────────────
+
     function esEquipo(sacador) {
       return /\//.test(String(sacador || "").trim());
     }
-
-    // ─── Utilidades numéricas ─────────────────────────────────────────────────
 
     function minAMmss(minutos) {
       if (!minutos || isNaN(minutos)) return "0:00";
@@ -559,7 +565,6 @@
       return isNaN(v) ? 0 : v;
     }
 
-    // Referencias con sanitización: si supera el máximo razonable → 0 (dato corrupto)
     function obtenerReferencias(obj) {
       const v = obtenerNumero(obj, CAMPOS.referencias);
       return v > MAX_REFS_POR_PEDIDO ? 0 : v;
@@ -582,86 +587,62 @@
     function pasaFiltroFecha(fecha, rango, ahora) {
       switch (rango) {
         case "hoy":  return esMismaFecha(fecha, ahora);
-        case "ayer": {
-          const ayer = new Date(ahora); ayer.setDate(ahora.getDate() - 1);
-          return esMismaFecha(fecha, ayer);
-        }
+        case "ayer": { const a = new Date(ahora); a.setDate(ahora.getDate()-1); return esMismaFecha(fecha, a); }
         case "semana": return estaMismaSemana(fecha, ahora);
-        case "mes":
-          return fecha.getMonth() === ahora.getMonth() && fecha.getFullYear() === ahora.getFullYear();
-        case "mesPasado": {
-          const mp = new Date(ahora); mp.setMonth(ahora.getMonth() - 1);
-          return fecha.getMonth() === mp.getMonth() && fecha.getFullYear() === mp.getFullYear();
-        }
+        case "mes":    return fecha.getMonth()===ahora.getMonth() && fecha.getFullYear()===ahora.getFullYear();
+        case "mesPasado": { const mp = new Date(ahora); mp.setMonth(ahora.getMonth()-1); return fecha.getMonth()===mp.getMonth() && fecha.getFullYear()===mp.getFullYear(); }
         case "todos": return true;
         default: return false;
       }
     }
 
     function rangoAnterior(rango) {
-      switch (rango) {
-        case "hoy":       return "ayer";
-        case "ayer":      return "antesDeAyer";
-        case "semana":    return "semanaAnterior";
-        case "mes":       return "mesPasado";
-        case "mesPasado": return "mesAntePasado";
-        default:          return null;
-      }
+      const mapa = { hoy:"ayer", ayer:"antesDeAyer", semana:"semanaAnterior", mes:"mesPasado", mesPasado:"mesAntePasado" };
+      return mapa[rango] || null;
     }
 
     function pasaFiltroFechaExt(fecha, rango, ahora) {
-      if (rango === "antesDeAyer") {
-        const antier = new Date(ahora); antier.setDate(ahora.getDate() - 2);
-        return esMismaFecha(fecha, antier);
-      }
-      if (rango === "semanaAnterior") {
-        const semPasada = new Date(ahora); semPasada.setDate(ahora.getDate() - 7);
-        return estaMismaSemana(fecha, semPasada);
-      }
-      if (rango === "mesAntePasado") {
-        const map = new Date(ahora); map.setMonth(ahora.getMonth() - 2);
-        return fecha.getMonth() === map.getMonth() && fecha.getFullYear() === map.getFullYear();
-      }
+      if (rango === "antesDeAyer") { const a = new Date(ahora); a.setDate(ahora.getDate()-2); return esMismaFecha(fecha, a); }
+      if (rango === "semanaAnterior") { const s = new Date(ahora); s.setDate(ahora.getDate()-7); return estaMismaSemana(fecha, s); }
+      if (rango === "mesAntePasado") { const m = new Date(ahora); m.setMonth(ahora.getMonth()-2); return fecha.getMonth()===m.getMonth() && fecha.getFullYear()===m.getFullYear(); }
       return pasaFiltroFecha(fecha, rango, ahora);
     }
 
     function formatNumero(n) {
-      if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1) + "M";
-      if (Math.abs(n) >= 10000)   return Math.round(n / 1000) + "K";
-      if (Math.abs(n) >= 1000)    return (n / 1000).toFixed(1) + "K";
+      if (Math.abs(n) >= 1000000) return (n/1000000).toFixed(1)+"M";
+      if (Math.abs(n) >= 10000)   return Math.round(n/1000)+"K";
+      if (Math.abs(n) >= 1000)    return (n/1000).toFixed(1)+"K";
       return Math.round(n).toLocaleString("es-DO");
     }
 
     function formatMonto(n) {
-      if (Math.abs(n) >= 1000000) return "$" + (n / 1000000).toFixed(2) + "M";
-      if (Math.abs(n) >= 1000)    return "$" + (n / 1000).toFixed(1) + "K";
-      return "$" + n.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (Math.abs(n) >= 1000000) return "$"+(n/1000000).toFixed(2)+"M";
+      if (Math.abs(n) >= 1000)    return "$"+(n/1000).toFixed(1)+"K";
+      return "$"+n.toLocaleString("es-DO",{minimumFractionDigits:2,maximumFractionDigits:2});
     }
 
     function formatMontoCompleto(n) {
-      return "$" + n.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return "$"+n.toLocaleString("es-DO",{minimumFractionDigits:2,maximumFractionDigits:2});
     }
 
+    // ─── FIX: calcularKPIs ahora usa variable local sumaTiempos ───
     function calcularKPIs(pedidos) {
       let refs = 0, bultos = 0, monto = 0, sumaTiempos = 0, cantTiempos = 0;
-      const codigosVistos = new Set();
+      const vistos = new Set();
       pedidos.forEach(p => {
-        const codigoP = String(p["Codigo P"] || p["CodigoP"] || "").trim();
-        if (!codigosVistos.has(codigoP) || !codigoP) {
-          refs += obtenerReferencias(p);
-          codigosVistos.add(codigoP);
-        }
+        const cod = String(p["Codigo P"] || p["CodigoP"] || "").trim();
+        if (!vistos.has(cod) || !cod) { refs += obtenerReferencias(p); vistos.add(cod); }
         bultos += obtenerNumero(p, CAMPOS.bultos);
-        monto  += obtenerMonto(p,  CAMPOS.monto);
+        monto  += obtenerMonto(p, CAMPOS.monto);
         const t = obtenerNumero(p, CAMPOS.tiempo);
         if (t > 0) { sumaTiempos += t; cantTiempos++; }
       });
       return {
-        pedidos:    pedidos.length,
+        pedidos:     pedidos.length,
         referencias: refs,
         bultos,
         monto,
-        tiempo: cantTiempos > 0 ? sumaTiempos / cantTiempos : 0
+        tiempo:      cantTiempos > 0 ? sumaTiempos / cantTiempos : 0
       };
     }
 
@@ -670,13 +651,9 @@
       if (!el || anterior === 0) { if (el) el.innerHTML = ""; return; }
       const pct = ((actual - anterior) / anterior) * 100;
       const abs = Math.abs(pct).toFixed(1);
-      if (pct > 0.5) {
-        el.innerHTML = `<span class="kpi-tendencia sube">▲ ${abs}% vs anterior</span>`;
-      } else if (pct < -0.5) {
-        el.innerHTML = `<span class="kpi-tendencia baja">▼ ${abs}% vs anterior</span>`;
-      } else {
-        el.innerHTML = `<span class="kpi-tendencia igual">= Sin cambio</span>`;
-      }
+      if (pct > 0.5)       el.innerHTML = `<span class="kpi-tendencia sube">▲ ${abs}% vs anterior</span>`;
+      else if (pct < -0.5) el.innerHTML = `<span class="kpi-tendencia baja">▼ ${abs}% vs anterior</span>`;
+      else                 el.innerHTML = `<span class="kpi-tendencia igual">= Sin cambio</span>`;
     }
 
     function iniciarTimer() {
@@ -693,50 +670,38 @@
 
     function exportarCSV(filas, totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto) {
       const BOM = "\uFEFF";
-      const cabecera = ["Auxiliar","Tipo","#Pedidos","#Referencias","Total de Bultos","Tiempo por Artículo (mm:ss)","Tiempo (min decimal)","Monto Total"].join(";");
-      const filasTxt = filas.map(f =>
-        [f.nombre, f.equipo ? "Equipo" : "Individual", f.pedidos, f.referencias, f.bultos, minAMmss(f.tiempoProm), f.tiempoProm.toFixed(2), f.monto.toFixed(2)].join(";")
-      );
-      filasTxt.push(["Total","",totalPedidos,totalReferencias,totalBultos,minAMmss(tiempoPromGeneral),tiempoPromGeneral.toFixed(2),totalMonto.toFixed(2)].join(";"));
-      const csv = BOM + cabecera + "\n" + filasTxt.join("\n");
+      const cab = ["Auxiliar","Tipo","#Pedidos","#Referencias","Total de Bultos","Tiempo por Artículo (mm:ss)","Tiempo (min decimal)","Monto Total"].join(";");
+      const rows = filas.map(f => [f.nombre, f.equipo ? "Equipo" : "Individual", f.pedidos, f.referencias, f.bultos, minAMmss(f.tiempoProm), f.tiempoProm.toFixed(2), f.monto.toFixed(2)].join(";"));
+      rows.push(["Total","",totalPedidos,totalReferencias,totalBultos,minAMmss(tiempoPromGeneral),tiempoPromGeneral.toFixed(2),totalMonto.toFixed(2)].join(";"));
+      const csv = BOM + cab + "\n" + rows.join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
-      a.href = url;
-      a.download = `reporte_pedidos_${rangoActual}_${new Date().toISOString().slice(0,10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      a.href = url; a.download = `reporte_pedidos_${rangoActual}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click(); URL.revokeObjectURL(url);
     }
+
+    // ─── Carga y filtrado ────────────────────────────────────
 
     function cargarReporte(rango) {
       rangoActual = rango;
-      document.getElementById("rep-tabla-body").innerHTML =
-        `<tr><td colspan="7" class="rep-cargando">Cargando datos...</td></tr>`;
+      document.getElementById("rep-tabla-body").innerHTML = `<tr><td colspan="7" class="rep-cargando">Cargando datos...</td></tr>`;
       iniciarTimer();
-
       fetch(API_SHEET)
-        .then(res => res.json())
-        .then(data => {
-          todosLosDatos = data;
-          aplicarFiltrosYRenderizar(data, rango);
-        })
+        .then(r => r.json())
+        .then(data => { todosLosDatos = data; aplicarFiltrosYRenderizar(data, rango); })
         .catch(err => {
-          console.error("❌ Error al cargar el reporte:", err);
-          document.getElementById("rep-tabla-body").innerHTML =
-            `<tr><td colspan="7" class="rep-vacio">No se pudieron cargar los datos.</td></tr>`;
+          console.error(err);
+          document.getElementById("rep-tabla-body").innerHTML = `<tr><td colspan="7" class="rep-vacio">No se pudieron cargar los datos.</td></tr>`;
         });
     }
 
     function aplicarFiltrosYRenderizar(data, rango) {
       const ahora = new Date();
-
       const pedidosFiltrados = data.filter(p => {
-        const fechaStr = obtenerCampo(p, CAMPOS.horaFin);
-        const fecha    = new Date(fechaStr);
+        const fecha = new Date(obtenerCampo(p, CAMPOS.horaFin));
         if (isNaN(fecha.getTime())) return false;
         if (!pasaFiltroFecha(fecha, rango, ahora)) return false;
-
-        // Filtro de auxiliar desde el selector: incluye al auxiliar dentro de equipos también
         if (filtroAuxiliar) {
           const sac = String(obtenerCampo(p, CAMPOS.sacador) || "").trim();
           if (!sac.includes(filtroAuxiliar) && sac !== filtroAuxiliar) return false;
@@ -744,85 +709,68 @@
         return true;
       });
 
-      const rAnterior = rangoAnterior(rango);
+      const rAnt = rangoAnterior(rango);
       let kpisAnt = null;
-      if (rAnterior) {
+      if (rAnt) {
         const pedidosAnt = data.filter(p => {
-          const fechaStr = obtenerCampo(p, CAMPOS.horaFin);
-          const fecha    = new Date(fechaStr);
-          if (isNaN(fecha.getTime())) return false;
-          return pasaFiltroFechaExt(fecha, rAnterior, ahora);
+          const f = new Date(obtenerCampo(p, CAMPOS.horaFin));
+          return !isNaN(f.getTime()) && pasaFiltroFechaExt(f, rAnt, ahora);
         });
         kpisAnt = calcularKPIs(pedidosAnt);
       }
-
       procesarYRenderizar(pedidosFiltrados, kpisAnt);
     }
 
     function procesarYRenderizar(pedidos, kpisAnt) {
       const auxiliares = {};
-      let totalMonto = 0;
-      let sumaTiemposTotal = 0, cantidadTiemposTotal = 0;
+      let totalMonto = 0, sumaTiemposTotal = 0, cantidadTiemposTotal = 0;
 
       const referenciasPorCodigo = {};
       pedidos.forEach(p => {
-        const codigo = String(p["Codigo P"] || p["CodigoP"] || "").trim();
-        if (codigo && !(codigo in referenciasPorCodigo)) {
-          referenciasPorCodigo[codigo] = obtenerReferencias(p);
-        }
+        const cod = String(p["Codigo P"] || p["CodigoP"] || "").trim();
+        if (cod && !(cod in referenciasPorCodigo)) referenciasPorCodigo[cod] = obtenerReferencias(p);
       });
 
-      const codigosContadosEnAuxiliar = {};
-
+      const codigosContados = {};
       pedidos.forEach(p => {
-        const sacadorRaw = String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim();
-        const bultos     = obtenerNumero(p, CAMPOS.bultos);
-        const tiempo     = obtenerNumero(p, CAMPOS.tiempo);
-        const monto      = obtenerMonto(p,  CAMPOS.monto);
-        const codigo     = String(p["Codigo P"] || p["CodigoP"] || "").trim();
-        const esTeam     = esEquipo(sacadorRaw);
+        const sac    = String(obtenerCampo(p, CAMPOS.sacador) || "Sin asignar").trim();
+        const bultos = obtenerNumero(p, CAMPOS.bultos);
+        const tiempo = obtenerNumero(p, CAMPOS.tiempo);
+        const monto  = obtenerMonto(p, CAMPOS.monto);
+        const cod    = String(p["Codigo P"] || p["CodigoP"] || "").trim();
+        const esTeam = esEquipo(sac);
 
-        if (!auxiliares[sacadorRaw]) {
-          auxiliares[sacadorRaw] = {
-            pedidos: 0, referencias: 0, bultos: 0, monto: 0,
-            sumaTiempos: 0, cantidadTiempos: 0,
-            equipo: esTeam
-          };
-          codigosContadosEnAuxiliar[sacadorRaw] = new Set();
+        if (!auxiliares[sac]) {
+          auxiliares[sac] = { pedidos:0, referencias:0, bultos:0, monto:0, sumaTiempos:0, cantidadTiempos:0, equipo:esTeam };
+          codigosContados[sac] = new Set();
         }
-
-        auxiliares[sacadorRaw].pedidos += 1;
-        auxiliares[sacadorRaw].bultos  += bultos;
-        auxiliares[sacadorRaw].monto   += monto;
+        auxiliares[sac].pedidos++;
+        auxiliares[sac].bultos += bultos;
+        auxiliares[sac].monto  += monto;
         totalMonto += monto;
 
-        if (codigo && !codigosContadosEnAuxiliar[sacadorRaw].has(codigo)) {
-          auxiliares[sacadorRaw].referencias += referenciasPorCodigo[codigo] || 0;
-          codigosContadosEnAuxiliar[sacadorRaw].add(codigo);
-        } else if (!codigo) {
-          auxiliares[sacadorRaw].referencias += obtenerReferencias(p);
+        if (cod && !codigosContados[sac].has(cod)) {
+          auxiliares[sac].referencias += referenciasPorCodigo[cod] || 0;
+          codigosContados[sac].add(cod);
+        } else if (!cod) {
+          auxiliares[sac].referencias += obtenerReferencias(p);
         }
 
         if (tiempo > 0) {
-          auxiliares[sacadorRaw].sumaTiempos     += tiempo;
-          auxiliares[sacadorRaw].cantidadTiempos += 1;
-          sumaTiemposTotal     += tiempo;
-          cantidadTiemposTotal += 1;
+          auxiliares[sac].sumaTiempos += tiempo;
+          auxiliares[sac].cantidadTiempos++;
+          sumaTiemposTotal += tiempo;
+          cantidadTiemposTotal++;
         }
       });
 
-      const totalReferencias = Object.values(referenciasPorCodigo).reduce((a, b) => a + b, 0);
-      const totalBultos = Object.values(auxiliares).reduce((a, b) => a + b.bultos, 0);
+      const totalReferencias  = Object.values(referenciasPorCodigo).reduce((a, b) => a + b, 0);
+      const totalBultos       = Object.values(auxiliares).reduce((a, b) => a + b.bultos, 0);
       const tiempoPromGeneral = cantidadTiemposTotal > 0 ? sumaTiemposTotal / cantidadTiemposTotal : 0;
 
       const filas = Object.entries(auxiliares).map(([nombre, d]) => ({
-        nombre,
-        pedidos:     d.pedidos,
-        referencias: d.referencias,
-        bultos:      d.bultos,
-        monto:       d.monto,
-        tiempoProm:  d.cantidadTiempos > 0 ? d.sumaTiempos / d.cantidadTiempos : 0,
-        equipo:      d.equipo
+        nombre, pedidos: d.pedidos, referencias: d.referencias, bultos: d.bultos,
+        monto: d.monto, tiempoProm: d.cantidadTiempos > 0 ? d.sumaTiempos / d.cantidadTiempos : 0, equipo: d.equipo
       }));
       filas.sort((a, b) => b.pedidos - a.pedidos);
 
@@ -831,16 +779,21 @@
 
       renderizarKPIs(pedidos.length, tiempoPromGeneral, totalReferencias, totalBultos, totalMonto, kpisAnt);
       renderizarTabla(filas, pedidos.length, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto);
-      renderizarGraficaAuxiliares(filas);
 
-      // Al re-renderizar datos, si hay filtro de gráfica activo, verificar que todavía existe
+      const filasInd  = filas.filter(f => !f.equipo);
+      const filasTeam = filas.filter(f =>  f.equipo);
+
+      renderizarGraficaIndividuales(filasInd);
+      renderizarGraficaEquipos(filasTeam);
+
       if (filtroGraficaTiempo) {
-        const existeFila = filas.find(f => f.nombre === filtroGraficaTiempo);
-        if (!existeFila) limpiarFiltroGrafica();
-        else             renderizarGraficaTiempo(filas, filtroGraficaTiempo);
+        const existe = filas.find(f => f.nombre === filtroGraficaTiempo);
+        if (!existe) limpiarFiltroGrafica();
+        else         renderizarGraficaTiempoInd(filasInd, filtroGraficaTiempo);
       } else {
-        renderizarGraficaTiempo(filas, null);
+        renderizarGraficaTiempoInd(filasInd, null);
       }
+      renderizarGraficaTiempoTeam(filasTeam);
     }
 
     function renderizarKPIs(totalPedidos, tiempoProm, totalReferencias, totalBultos, totalMonto, kpisAnt) {
@@ -870,138 +823,72 @@
 
       if (filas.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="rep-vacio">No se encontraron pedidos en este periodo.</td></tr>`;
-        tfoot.innerHTML = "";
-        return;
+        tfoot.innerHTML = ""; return;
       }
 
       const maxPedidos = Math.max(...filas.map(f => f.pedidos)) || 1;
       const maxTiempo  = Math.max(...filas.map(f => f.tiempoProm));
-
       let rankInd = 0;
-      tbody.innerHTML = filas.map((f) => {
+
+      tbody.innerHTML = filas.map(f => {
         const esTeam = f.equipo;
         let medalla;
         if (esTeam) {
           medalla = `<span style="color:var(--rep-accent-team);font-size:0.85rem">👥</span>`;
         } else {
           rankInd++;
-          medalla = rankInd <= 3
-            ? `<span class="rank-medal">${MEDALLAS[rankInd - 1]}</span>`
-            : `<span style="color:var(--rep-text-light);font-size:0.8rem">${rankInd}</span>`;
+          medalla = rankInd <= 3 ? `<span class="rank-medal">${MEDALLAS[rankInd-1]}</span>` : `<span style="color:var(--rep-text-light);font-size:0.8rem">${rankInd}</span>`;
         }
-
-        const barraW = Math.round((f.pedidos / maxPedidos) * 80);
-        const barra  = `<div class="progress-bar-wrap">
-          <span>${f.pedidos.toLocaleString("es-DO")}</span>
-          <div class="progress-bar${esTeam ? " equipo-bar" : ""}" style="width:${barraW}px"></div>
-        </div>`;
-
-        const esMax     = maxTiempo > 0 && f.tiempoProm === maxTiempo;
-        const tiempoStr = minAMmss(f.tiempoProm);
-        const tiempoHtml = esMax
-          ? `<span class="tiempo-cell-max">${tiempoStr}</span><span class="tiempo-max-badge">⬆ Mayor</span>`
-          : `<span>${tiempoStr}</span>`;
-
-        const nombreHtml = esTeam
-          ? `${f.nombre}<span class="badge-equipo">👥 Equipo</span>`
-          : f.nombre;
-
-        return `<tr class="${esTeam ? "fila-equipo" : ""}">
-          <td style="text-align:center">${medalla}</td>
-          <td>${nombreHtml}</td>
-          <td>${barra}</td>
-          <td>${f.referencias.toLocaleString("es-DO")}</td>
-          <td>${f.bultos.toLocaleString("es-DO")}</td>
-          <td style="text-align:right">${tiempoHtml}</td>
-          <td class="monto-cell">${formatMontoCompleto(f.monto)}</td>
-        </tr>`;
+        const barraW   = Math.round((f.pedidos / maxPedidos) * 80);
+        const barra    = `<div class="progress-bar-wrap"><span>${f.pedidos.toLocaleString("es-DO")}</span><div class="progress-bar${esTeam ? " equipo-bar" : ""}" style="width:${barraW}px"></div></div>`;
+        const esMax    = maxTiempo > 0 && f.tiempoProm === maxTiempo;
+        const tiempoStr  = minAMmss(f.tiempoProm);
+        const tiempoHtml = esMax ? `<span class="tiempo-cell-max">${tiempoStr}</span><span class="tiempo-max-badge">⬆ Mayor</span>` : `<span>${tiempoStr}</span>`;
+        const nombreHtml = esTeam ? `${f.nombre}<span class="badge-equipo">👥 Equipo</span>` : f.nombre;
+        return `<tr class="${esTeam ? "fila-equipo" : ""}"><td style="text-align:center">${medalla}</td><td>${nombreHtml}</td><td>${barra}</td><td>${f.referencias.toLocaleString("es-DO")}</td><td>${f.bultos.toLocaleString("es-DO")}</td><td style="text-align:right">${tiempoHtml}</td><td class="monto-cell">${formatMontoCompleto(f.monto)}</td></tr>`;
       }).join("");
 
-      tfoot.innerHTML = `<tr>
-        <td></td>
-        <td>Total</td>
-        <td>${totalPedidos.toLocaleString("es-DO")}</td>
-        <td>${totalReferencias.toLocaleString("es-DO")}</td>
-        <td>${totalBultos.toLocaleString("es-DO")}</td>
-        <td>${minAMmss(tiempoPromGeneral)}</td>
-        <td class="monto-cell">${formatMontoCompleto(totalMonto)}</td>
-      </tr>`;
+      tfoot.innerHTML = `<tr><td></td><td>Total</td><td>${totalPedidos.toLocaleString("es-DO")}</td><td>${totalReferencias.toLocaleString("es-DO")}</td><td>${totalBultos.toLocaleString("es-DO")}</td><td>${minAMmss(tiempoPromGeneral)}</td><td class="monto-cell">${formatMontoCompleto(totalMonto)}</td></tr>`;
     }
 
-    // ─── Gráfica de barras + línea (izquierda) ───────────────────────────────
-    // Al hacer click en una barra naranja (individual) filtra la gráfica de tiempo
-    function renderizarGraficaAuxiliares(filas) {
-      const ctx = document.getElementById("grafica-auxiliares").getContext("2d");
+    // ─── Gráfica barras genérica ──────────────────────────────
 
-      const labels           = filas.map(f => f.nombre);
-      const datosPedidos     = filas.map(f => f.pedidos);
-      const datosReferencias = filas.map(f => f.referencias);
-      const coloresPedidos   = filas.map(f =>
-        f.equipo ? "rgba(139,92,246,0.75)" : "rgba(242,132,92,0.75)"
-      );
-      const bordesPedidos = filas.map(f =>
-        f.equipo ? "rgba(139,92,246,1)" : "rgba(242,132,92,1)"
-      );
+    function renderizarGraficaBarras(canvasId, filasFiltradas, chartRef, colorBarra, colorBorde, onClickCb, onHoverCb) {
+      const ctx    = document.getElementById(canvasId).getContext("2d");
+      const labels = filasFiltradas.map(f => f.nombre);
+      const datos  = filasFiltradas.map(f => f.pedidos);
+      const refs   = filasFiltradas.map(f => f.referencias);
 
       const dataConfig = {
         labels,
         datasets: [
           {
-            type: "bar",
-            label: "# Pedidos",
-            data: datosPedidos,
-            backgroundColor: coloresPedidos,
-            borderColor: bordesPedidos,
-            borderWidth: 1,
-            yAxisID: "y",
-            datalabels: { display: false }
+            type: "bar", label: "# Pedidos", data: datos,
+            backgroundColor: colorBarra, borderColor: colorBorde,
+            borderWidth: 1, yAxisID: "y", datalabels: { display: false }
           },
           {
-            type: "line",
-            label: "# Referencias",
-            data: datosReferencias,
-            borderColor: "rgba(47,72,88,1)",
-            backgroundColor: "rgba(47,72,88,0.15)",
-            borderWidth: 2,
-            tension: 0.35,
-            fill: true,
-            pointRadius: 2,
-            yAxisID: "y1",
+            type: "line", label: "# Referencias", data: refs,
+            borderColor: "rgba(47,72,88,1)", backgroundColor: "rgba(47,72,88,0.15)",
+            borderWidth: 2, tension: 0.35, fill: true, pointRadius: 2, yAxisID: "y1",
             datalabels: { display: false }
           }
         ]
       };
 
-      if (graficaAuxiliares) {
-        graficaAuxiliares.data = dataConfig;
-        graficaAuxiliares.update();
-        return;
+      if (chartRef) {
+        chartRef.data = dataConfig;
+        chartRef.update();
+        return chartRef;
       }
 
-      graficaAuxiliares = new Chart(ctx, {
+      return new Chart(ctx, {
         data: dataConfig,
         options: {
           responsive: true, maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
           plugins: {
-            legend: {
-              position: "top",
-              labels: {
-                generateLabels: (chart) => {
-                  const items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
-                  // Agregar ítem de leyenda manual para "Equipo"
-                  items.splice(1, 0, {
-                    text: "# Pedidos (Equipo)",
-                    fillStyle: "rgba(139,92,246,0.75)",
-                    strokeStyle: "rgba(139,92,246,1)",
-                    lineWidth: 1,
-                    hidden: false,
-                    index: -1
-                  });
-                  return items;
-                }
-              }
-            },
+            legend: { position: "top" },
             tooltip: { enabled: true },
             datalabels: { display: false }
           },
@@ -1010,152 +897,181 @@
             y:  { type: "linear", position: "left",  beginAtZero: true, title: { display: true, text: "# Pedidos" } },
             y1: { type: "linear", position: "right", beginAtZero: true, title: { display: true, text: "# Referencias" }, grid: { drawOnChartArea: false } }
           },
-          onClick: (event, elements) => {
-            if (!elements || elements.length === 0) return;
-            // Solo reaccionar a clicks en el dataset de barras (índice 0)
-            const el = elements.find(e => e.datasetIndex === 0);
-            if (!el) return;
-            const fila = filasActuales[el.index];
-            if (!fila) return;
-            // Solo individuales son filtrables (los equipos no aplican)
-            if (fila.equipo) return;
-            // Toggle: si ya está filtrado por este, quitar; si no, aplicar
-            if (filtroGraficaTiempo === fila.nombre) {
-              limpiarFiltroGrafica();
-            } else {
-              filtroGraficaTiempo = fila.nombre;
-              actualizarChipFiltro(fila.nombre);
-              renderizarGraficaTiempo(filasActuales, fila.nombre);
-            }
-          },
-          // Cambiar cursor al pasar sobre barras individuales
-          onHover: (event, elements) => {
-            const canvas = event.native?.target;
-            if (!canvas) return;
-            const el = elements.find(e => e.datasetIndex === 0);
-            if (el) {
-              const fila = filasActuales[el.index];
-              canvas.style.cursor = (fila && !fila.equipo) ? "pointer" : "default";
-            } else {
-              canvas.style.cursor = "default";
-            }
-          }
+          onClick: onClickCb || null,
+          onHover: onHoverCb || null
         }
       });
     }
 
-    // ─── Chip de filtro activo (gráfica de tiempo) ────────────────────────────
+    // ─── Gráfica individuales ─────────────────────────────────
+    function renderizarGraficaIndividuales(filasInd) {
+      const onClick = (event, elements) => {
+        if (!elements || !elements.length) return;
+        const el = elements.find(e => e.datasetIndex === 0);
+        if (!el) return;
+        const fila = filasInd[el.index];
+        if (!fila) return;
+        if (filtroGraficaTiempo === fila.nombre) limpiarFiltroGrafica();
+        else {
+          filtroGraficaTiempo = fila.nombre;
+          actualizarChipFiltro(fila.nombre);
+          renderizarGraficaTiempoInd(filasActuales.filter(f => !f.equipo), fila.nombre);
+        }
+      };
+      const onHover = (event, elements) => {
+        const canvas = event.native?.target;
+        if (!canvas) return;
+        canvas.style.cursor = (elements && elements.find(e => e.datasetIndex === 0)) ? "pointer" : "default";
+      };
+
+      graficaIndividuales = renderizarGraficaBarras(
+        "grafica-individuales", filasInd, graficaIndividuales,
+        "rgba(242,132,92,0.75)", "rgba(242,132,92,1)", onClick, onHover
+      );
+    }
+
+    // ─── Gráfica equipos ──────────────────────────────────────
+    function renderizarGraficaEquipos(filasTeam) {
+      const wrapper  = document.getElementById("grafica-equipos-wrapper");
+      const sinEquip = document.getElementById("sin-equipos");
+
+      if (filasTeam.length === 0) {
+        wrapper.style.display = "none";
+        sinEquip.style.display = "block";
+        return;
+      }
+      wrapper.style.display = "block";
+      sinEquip.style.display = "none";
+
+      const altura = Math.min(Math.max(filasTeam.length * 60 + 60, 160), 340);
+      wrapper.style.height = altura + "px";
+
+      graficaEquipos = renderizarGraficaBarras(
+        "grafica-equipos", filasTeam, graficaEquipos,
+        "rgba(139,92,246,0.75)", "rgba(139,92,246,1)", null, null
+      );
+    }
+
+    // ─── Chip de filtro ───────────────────────────────────────
     function actualizarChipFiltro(nombre) {
-      const chip = document.getElementById("chip-filtro-tiempo");
-      const span = document.getElementById("chip-filtro-nombre");
-      span.textContent = `Mostrando: ${nombre}`;
-      chip.classList.add("visible");
+      document.getElementById("chip-filtro-nombre").textContent = `Mostrando: ${nombre}`;
+      document.getElementById("chip-filtro-tiempo").classList.add("visible");
     }
 
     function limpiarFiltroGrafica() {
       filtroGraficaTiempo = null;
-      const chip = document.getElementById("chip-filtro-tiempo");
-      chip.classList.remove("visible");
-      renderizarGraficaTiempo(filasActuales, null);
+      document.getElementById("chip-filtro-tiempo").classList.remove("visible");
+      renderizarGraficaTiempoInd(filasActuales.filter(f => !f.equipo), null);
     }
 
-    // ─── Gráfica de tiempo (derecha) — acepta filtro opcional ─────────────────
-    // Si `soloNombre` es un string, muestra exclusivamente ese auxiliar.
-    function renderizarGraficaTiempo(filas, soloNombre) {
-      const ctx = document.getElementById("grafica-tiempo").getContext("2d");
-
-      // Aplicar filtro si hay uno activo
-      const filasFiltradas = soloNombre
-        ? filas.filter(f => f.nombre === soloNombre)
-        : filas;
-
-      const filasOrdenadas = [...filasFiltradas].sort((a, b) => b.tiempoProm - a.tiempoProm);
-      const maxTiempo      = filasOrdenadas.length > 0 ? filasOrdenadas[0].tiempoProm : 0;
+    // ─── Gráfica tiempo horizontal genérica ──────────────────
+    function _buildTiempoChart(canvasId, filasOrdenadas, colorFn, colorBordeFn, chartRef) {
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      const maxTiempo = filasOrdenadas.length > 0 ? filasOrdenadas[0].tiempoProm : 0;
 
       const labels  = filasOrdenadas.map(f => f.nombre);
       const datos   = filasOrdenadas.map(f => parseFloat(f.tiempoProm.toFixed(4)));
-
-      const colores = filasOrdenadas.map(f => {
-        if (maxTiempo > 0 && f.tiempoProm === maxTiempo) return "rgba(232,67,147,0.85)";
-        if (f.equipo) return "rgba(139,92,246,0.55)";
-        return "rgba(79,163,209,0.55)";
-      });
-      const bordes = filasOrdenadas.map(f => {
-        if (maxTiempo > 0 && f.tiempoProm === maxTiempo) return "rgba(232,67,147,1)";
-        if (f.equipo) return "rgba(139,92,246,1)";
-        return "rgba(79,163,209,1)";
-      });
+      const colores = filasOrdenadas.map(f => colorFn(f, maxTiempo));
+      const bordes  = filasOrdenadas.map(f => colorBordeFn(f, maxTiempo));
 
       const dataConfig = {
         labels,
         datasets: [{
-          label: "Tiempo por artículo",
-          data: datos,
-          backgroundColor: colores,
-          borderColor: bordes,
-          borderWidth: 1.5,
-          borderRadius: 6,
+          label: "Tiempo por artículo", data: datos,
+          backgroundColor: colores, borderColor: bordes,
+          borderWidth: 1.5, borderRadius: 6,
           datalabels: {
-            display: true,
-            anchor: "end",
-            align: "right",
-            formatter: (value) => value > 0 ? minAMmss(value) : "0:00",
-            color: (ctx) => {
-              const val = ctx.dataset.data[ctx.dataIndex];
-              return (maxTiempo > 0 && val === maxTiempo) ? "#BE185D" : "#4A6E8A";
-            },
-            font: { size: 11, weight: "700" },
-            padding: { left: 4 }
+            display: true, anchor: "end", align: "right",
+            formatter: (v) => v > 0 ? minAMmss(v) : "0:00",
+            color: (ctx2) => (maxTiempo > 0 && ctx2.dataset.data[ctx2.dataIndex] === maxTiempo) ? "#BE185D" : "#4A6E8A",
+            font: { size: 11, weight: "700" }, padding: { left: 4 }
           }
         }]
       };
 
-      if (graficaTiempo) {
-        graficaTiempo.data = dataConfig;
-        graficaTiempo.data.datasets[0].datalabels = dataConfig.datasets[0].datalabels;
-        graficaTiempo.update();
-        return;
+      if (chartRef) {
+        chartRef.data = dataConfig;
+        chartRef.data.datasets[0].datalabels = dataConfig.datasets[0].datalabels;
+        chartRef.update();
+        return chartRef;
       }
 
-      graficaTiempo = new Chart(ctx, {
-        type: "bar",
-        data: dataConfig,
+      return new Chart(ctx, {
+        type: "bar", data: dataConfig,
         options: {
-          indexAxis: "y",
-          responsive: true,
-          maintainAspectRatio: false,
+          indexAxis: "y", responsive: true, maintainAspectRatio: false,
           layout: { padding: { right: 70 } },
           plugins: {
             legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => {
-                  const minDecimal = ctx.parsed.x;
-                  return `  ${minAMmss(minDecimal)}  (${minDecimal.toFixed(2)} min)`;
-                }
-              }
-            },
+            tooltip: { callbacks: { label: (ctx2) => `  ${minAMmss(ctx2.parsed.x)}  (${ctx2.parsed.x.toFixed(2)} min)` } },
             datalabels: { display: true }
           },
           scales: {
-            x: {
-              beginAtZero: true,
-              title: { display: true, text: "Minutos (decimales)" },
-              ticks: { callback: (value) => minAMmss(value) }
-            },
+            x: { beginAtZero: true, title: { display: true, text: "Minutos" }, ticks: { callback: (v) => minAMmss(v) } },
             y: { ticks: { font: { size: 11 } } }
           }
         }
       });
     }
 
-    // ─── Event listeners ──────────────────────────────────────────────────────
+    // ─── Gráfica tiempo — Individuales ────────────────────────
+    function renderizarGraficaTiempoInd(filasInd, soloNombre) {
+      const wrapper = document.getElementById("tiempo-wrapper-ind");
+      const aviso   = document.getElementById("sin-ind-tiempo");
 
+      const filasFiltradas = soloNombre ? filasInd.filter(f => f.nombre === soloNombre) : filasInd;
+      const filasConTiempo = filasFiltradas.filter(f => f.tiempoProm > 0);
+      const filasOrdenadas = [...filasConTiempo].sort((a, b) => b.tiempoProm - a.tiempoProm);
+
+      if (filasOrdenadas.length === 0) {
+        wrapper.style.display = "none";
+        aviso.style.display = "block";
+        return;
+      }
+      wrapper.style.display = "block";
+      aviso.style.display = "none";
+
+      const alturaCalc = filasOrdenadas.length * 40 + 60;
+      wrapper.style.height = Math.min(Math.max(alturaCalc, 180), 900) + "px";
+
+      const maxTiempo = filasOrdenadas[0].tiempoProm;
+      const colorFn      = (f) => (maxTiempo > 0 && f.tiempoProm === maxTiempo) ? "rgba(232,67,147,0.85)" : "rgba(79,163,209,0.55)";
+      const colorBordeFn = (f) => (maxTiempo > 0 && f.tiempoProm === maxTiempo) ? "rgba(232,67,147,1)"    : "rgba(79,163,209,1)";
+
+      graficaTiempoInd = _buildTiempoChart("grafica-tiempo-ind", filasOrdenadas, colorFn, colorBordeFn, graficaTiempoInd);
+    }
+
+    // ─── Gráfica tiempo — Equipos ─────────────────────────────
+    function renderizarGraficaTiempoTeam(filasTeam) {
+      const wrapper = document.getElementById("tiempo-wrapper-team");
+      const aviso   = document.getElementById("sin-team-tiempo");
+
+      const filasConTiempo = filasTeam.filter(f => f.tiempoProm > 0);
+      const filasOrdenadas = [...filasConTiempo].sort((a, b) => b.tiempoProm - a.tiempoProm);
+
+      if (filasOrdenadas.length === 0) {
+        wrapper.style.display = "none";
+        aviso.style.display = "block";
+        return;
+      }
+      wrapper.style.display = "block";
+      aviso.style.display = "none";
+
+      const alturaCalc = filasOrdenadas.length * 40 + 60;
+      wrapper.style.height = Math.min(Math.max(alturaCalc, 180), 900) + "px";
+
+      const maxTiempo    = filasOrdenadas[0].tiempoProm;
+      const colorFn      = (f) => (maxTiempo > 0 && f.tiempoProm === maxTiempo) ? "rgba(232,67,147,0.85)" : "rgba(139,92,246,0.55)";
+      const colorBordeFn = (f) => (maxTiempo > 0 && f.tiempoProm === maxTiempo) ? "rgba(232,67,147,1)"    : "rgba(139,92,246,1)";
+
+      graficaTiempoTeam = _buildTiempoChart("grafica-tiempo-team", filasOrdenadas, colorFn, colorBordeFn, graficaTiempoTeam);
+    }
+
+    // ─── Event listeners ──────────────────────────────────────
     document.querySelectorAll("#rep-filtros button").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("#rep-filtros button").forEach(b => b.classList.remove("activo"));
         btn.classList.add("activo");
-        // Al cambiar el rango limpiamos el filtro de gráfica
         limpiarFiltroGrafica();
         cargarReporte(btn.dataset.rango);
       });
@@ -1163,7 +1079,6 @@
 
     document.getElementById("sel-auxiliar").addEventListener("change", function () {
       filtroAuxiliar = this.value;
-      // Al cambiar el filtro de auxiliar también limpiamos el filtro de gráfica
       limpiarFiltroGrafica();
       if (todosLosDatos.length > 0) aplicarFiltrosYRenderizar(todosLosDatos, rangoActual);
     });
@@ -1173,9 +1088,7 @@
       exportarCSV(filasActuales, totalPedidos, totalReferencias, totalBultos, tiempoPromGeneral, totalMonto);
     });
 
-    document.addEventListener("DOMContentLoaded", () => {
-      cargarReporte(rangoActual);
-    });
+    document.addEventListener("DOMContentLoaded", () => { cargarReporte(rangoActual); });
   </script>
 </body>
 </html>
